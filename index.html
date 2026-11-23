@@ -309,7 +309,7 @@ function box(sx,sy,sz,mat,x,y,z,parent=scene){ const m=new THREE.Mesh(new THREE.
 
 // ---------- game state ----------
 const S = {
-  started:false, paused:false, dead:false, won:false, ui:null, locked:false, noLock:false,
+  lostTonight:[], late:null, started:false, paused:false, dead:false, won:false, ui:null, locked:false, noLock:false,
   hour:14, day:1, deaths:0, time:0,
   pos:{x:-3.4,z:93.4}, yaw:2.85, pitch:0, stamina:1, tired:false, bob:0, lastStep:0,
   carry:false, hasMap:false, flashlight:false, hasLight:false, battery:1, batteries:0, trunkDone:false, fed:false, coffee:false,
@@ -899,6 +899,7 @@ const LURK_LINES=[
   "Honey, it's Marisol. I forgot my key.",
   "Mister? It's June. I'm lost. Can I come in?"
 ];
+const WALK=3.6; // the player's walking speed; nothing out there moves faster
 const CHASE_LINES=["There you are.","Don't run. Don't run.","Come here, come here, come here.","Why are you running?"];
 const CLOTHES=[0x3b3f4a,0x5a4636,0x6b2e2e,0x2f4a3a,0x4a4a52,0x7a6a55,0x2a3550,0x6e6a62];
 const KINDS={
@@ -910,7 +911,7 @@ const KINDS={
     look:{shirt:0xeeebe2,pants:0xeeebe2,longDress:0xeeebe2,veil:true,carry:'bouquet',armHold:-0.75,longHair:true,hair:0x3a2a1a},
     lurk:["He never came. Will you come out instead?","Something old, something new. Come out and be my something new.","I've been walking down this aisle for so long.","Don't you want to see my dress up close?"],
     chase:["Wait for me.","Don't you leave me too."], speed:3.3, relentless:true, hum:true},
-  boxer:{title:'The Boxer', desc:'Bare-chested, red gloves up, red trunks. He comes at you in bursts faster than you can run, then stops dead and bounces on his toes, like he is waiting for a bell.',
+  boxer:{title:'The Boxer', desc:'Bare-chested, red gloves up, red trunks. He comes at you in long bursts, then stops dead and bounces on his toes, like he is waiting for a bell.',
     look:{shirt:0x9a1e1e,pants:0x9a1e1e,shirtless:true,shorts:0x9a1e1e,gloves:0xb02020,hair:0x1a1a1a,armHold:-1.25},
     lurk:["Come on out. One round.","Keep your guard up in there.","Ding ding.","Nobody ever goes the distance with me."],
     chase:["Ding ding!","Come on, come on!"], burst:true},
@@ -960,8 +961,11 @@ function approachPoint(a,b){
   if(along>b.half+0.4) return b.doorOut;
   const tx=b.t[0], tz=b.t[1], side=(rx*tx+rz*tz)>=0?1:-1;
   const front=b.porch?3.6:2.5;
-  if(along<-b.half+0.4) return {x:b.x-b.n[0]*(b.half+2.5)+tx*side*(b.otherHalf+2.2), z:b.z-b.n[1]*(b.half+2.5)+tz*side*(b.otherHalf+2.2)};
-  return {x:b.x+b.n[0]*(b.half+front)+tx*side*(b.otherHalf+2.2), z:b.z+b.n[1]*(b.half+front)+tz*side*(b.otherHalf+2.2)};
+  const fc={x:b.x+b.n[0]*(b.half+front)+tx*side*(b.otherHalf+2.2), z:b.z+b.n[1]*(b.half+front)+tz*side*(b.otherHalf+2.2)};
+  if(along<-b.half+0.4){ const rc={x:b.x-b.n[0]*(b.half+2.5)+tx*side*(b.otherHalf+2.2), z:b.z-b.n[1]*(b.half+2.5)+tz*side*(b.otherHalf+2.2)};
+    // round the back corner, then head up the side
+    if(dist(a.pos,rc)<1.6){ a.via=fc; a.viaT=0; return fc; } return rc; }
+  return fc;
 }
 // walk through the doorway in an interior wall if the goal is on the other side
 function partStep(a,b,goal){
@@ -980,6 +984,29 @@ function navTarget(a,goal,canEnterProtected){
   if(cb){ const ps=partStep(a,cb,goal); if(ps) return ps; }
   return goal;
 }
+function npcExposed(a){ if(a.dead) return false; const b=buildingAt(a.pos.x,a.pos.z); return !(b&&b.talisman); }
+function findPrey(c){
+  let best=null, bd=1e9;
+  for(const a of npcs){ if(!npcExposed(a)) continue; const inside=!!buildingAt(a.pos.x,a.pos.z), d=dist(c.pos,a.pos);
+    // they can smell a house with no talisman from across town
+    if(d<(inside?90:55) && d<bd){ bd=d; best=a; } }
+  return best;
+}
+const shortName=a=>a.def.name.startsWith('Dr.')?'Dr. Vance':a.def.name.split(' ')[0];
+function killNPC(a,c){
+  a.dead=true; S.lostTonight.push(a); if(talk&&talk.a===a) endTalk();
+  scene.remove(a.g); sfx.screamAt(a.pos.x,a.pos.z);
+  const nm=shortName(a), d=dist(a.pos,S.pos);
+  if(d<45) showMsg(`<span style="color:#e2574c">${nm} screams, and then stops.</span>`,6);
+  else if(d<140) showMsg('Somewhere out in the dark, someone screams. Then nothing.',5);
+  const x=a.pos.x, z=a.pos.z, keys=a.def.topics.map(t=>t.learn).filter(Boolean);
+  const mk=new THREE.Group(); box(0.5,0.08,0.35,lam(0x5a4632),0,0.04,0,mk); box(0.3,0.02,0.22,lam(0xd8d0b8),0.05,0.09,0,mk); mk.position.set(x,0,z); mk.rotation.y=Math.random()*6; scene.add(mk);
+  addInteract({x,y:0.4,z,r:2.2,enabled:()=>!a.thingsTaken,label:()=>`${nm}'s things`,
+    act:()=>{ a.thingsTaken=true; scene.remove(mk); const fresh=keys.filter(k=>!S.know[k]);
+      showMsg(fresh.length?`A coat, a shoe, a folded page in ${nm}'s handwriting. Whatever they meant to tell you, it's written here.`:`A coat and a shoe. That's all that's left of ${nm}.`,6);
+      for(const k of fresh) learn(k); }});
+  if(c){ c.prey=null; c.state='wander'; }
+}
 function updateCreatures(dt,pb,safe,extraC){
   let nearest=1e9, nearestChase=1e9;
   for(let i=creatures.length-1;i>=0;i--){
@@ -994,12 +1021,14 @@ function updateCreatures(dt,pb,safe,extraC){
     const K=c.K||{};
     if(c.leader && (!creatures.includes(c.leader) || c.leader.state==='leave')) c.leader=null;
     const detect=(S.flashlight?42:26)+(S.sprinting?12:0);
+    if(c.prey && !npcExposed(c.prey)){ c.prey=null; if(c.state==='hunt') c.state='wander'; }
+    if(!c.prey && (c.state==='wander'||c.state==='lurk') && !c.leader){ c.preyT=(c.preyT||0)-dt; if(c.preyT<=0){ c.preyT=1; c.prey=findPrey(c); if(c.prey) c.state='hunt'; } }
     if(c.kindId && !S.seen[c.kindId] && d<20){ S.seen[c.kindId]=true; sfx.sightSting(); showMsg(`<span style="color:#e2574c">${K.title}.</span> ${K.desc}`,8); }
-    if(safe){ if(c.state==='chase' || (c.state!=='lurk' && d<40) || (K.rounds&&d<60)){ if(c.state!=='lurk'){ c.state='lurk'; c.alerted=false;
+    if(safe && c.state!=='hunt'){ if(c.state==='chase' || (c.state!=='lurk' && d<40) || (K.rounds&&d<60)){ if(c.state!=='lurk'){ c.state='lurk'; c.alerted=false;
         if(K.rounds) c.lurkPt={x:pb.doorOut.x+pb.n[0]*(pb.porch?1.2:0.2), z:pb.doorOut.z+pb.n[1]*(pb.porch?1.2:0.2)};
         else if(pb.windows.length && Math.random()<0.55){ const w=pick(pb.windows); c.lurkPt={x:w.x,z:w.z}; }
         else { const o=rnd(-2.6,2.6), out=rnd(0.6,3.2)+(pb.porch?2.6:0); c.lurkPt={x:pb.doorOut.x+pb.t[0]*o+pb.n[0]*out, z:pb.doorOut.z+pb.t[1]*o+pb.n[1]*out}; } } } }
-    else if(c.state==='lurk'){ c.state='chase'; }
+    else if(c.state==='lurk' && !safe){ c.state='chase'; }
     else if(c.alerted || d<detect){ if(c.state!=='chase'){ c.state='chase'; if(S.time-S.chaseSting>14 || K.caller){ S.chaseSting=S.time; sfx.sting(); if(d<30 && !c.leader) showSub(creatureLine(c,K.chase||CHASE_LINES)); } } }
     else if(c.state==='chase' && d>75 && !K.relentless){ c.state='wander'; }
     if(c.leader && c.leader.state==='lurk' && c.state!=='lurk' && safe){ c.state='lurk'; }
@@ -1010,16 +1039,20 @@ function updateCreatures(dt,pb,safe,extraC){
     if(K.hum && d<34){ c.humT-=dt; if(c.humT<=0){ c.humT=rnd(7,11); sfx.humAt(c.pos.x,c.pos.z); } }
     if(K.rounds && d<28){ c.clinkT-=dt; if(c.clinkT<=0){ c.clinkT=rnd(1.2,2.6); sfx.clinkAt(c.pos.x,c.pos.z); } }
 
-    const baseSpeed=(K.speed||4.3)+Math.min(S.day,6)*0.08;
+    const baseSpeed=Math.min(K.speed||WALK,WALK);
     if(c.state==='chase'){
       nearestChase=Math.min(nearestChase,d);
       let spd=baseSpeed;
       if(K.burst){ c.burstT+=dt; const ph=c.burstT%3.6;
-        if(ph<2.2){ spd=7.0; moveActor(c,navTarget(c,S.pos,false),spd,dt,extraC); }
+        if(ph<2.8){ spd=WALK; moveActor(c,navTarget(c,S.pos,false),spd,dt,extraC); }
         else { spd=0; c.g.rotation.y=Math.atan2(S.pos.x-c.pos.x,S.pos.z-c.pos.z); idlePose(c,dt); c.pos.y=Math.abs(Math.sin(S.time*9))*0.08; const s=Math.sin(S.time*9)*0.25; c.legL.rotation.x=s; c.legR.rotation.x=-s; } }
-      else { const goal=(c.leader && d>6)?besideLeader(c):S.pos; spd=c.leader?baseSpeed+0.5:baseSpeed; moveActor(c,navTarget(c,goal,false),spd,dt,extraC); }
+      else { const goal=(c.leader && d>6)?besideLeader(c):S.pos; spd=c.leader?Math.min(baseSpeed+0.5,WALK):baseSpeed; moveActor(c,navTarget(c,goal,false),spd,dt,extraC); }
       if(d<26 && spd>0){ c.stepAcc+=spd*dt; if(c.stepAcc>1.25){ c.stepAcc=0; sfx.stepAt(c.pos.x,c.pos.z); } }
       if(d<1.05 && !safe){ die(); return {nearest,nearestChase}; }
+    } else if(c.state==='hunt'){
+      const p=c.prey; moveActor(c,navTarget(c,p.pos,false),baseSpeed,dt,extraC);
+      if(d<26){ c.stepAcc+=baseSpeed*dt; if(c.stepAcc>1.25){ c.stepAcc=0; sfx.stepAt(c.pos.x,c.pos.z); } }
+      if(dist(c.pos,p.pos)<1.05) killNPC(p,c);
     } else if(c.state==='lurk'){
       const dl=dist(c.pos,c.lurkPt);
       if(dl>0.5) moveActor(c,navTarget(c,c.lurkPt,false),K.rounds?2.2:1.6,dt,extraC);
@@ -1212,13 +1245,16 @@ function placePoint(place){
   }
   return P.b ? {x:B[P.b].doorIn.x, z:B[P.b].doorIn.z} : p;
 }
-function desiredPlace(a){ const h=S.hour, off=a.def.offset; return (h>=7.4+off && h<17.6+off) ? a.def.work : a.def.home; }
+function desiredPlace(a){ const h=S.hour, off=a.def.offset, end=S.late===a?20.6:17.6+off; return (h>=7.4+off && h<end) ? a.def.work : a.def.home; }
+// some evenings one of the grown-ups loses track of time
+function pickLate(){ S.late=null; if(S.day<2 || Math.random()>0.45) return;
+  const c=npcs.filter(a=>!a.dead && a.def.work!==a.def.home && (a.def.look.scale||1)>0.8); if(c.length) S.late=pick(c); }
 for(const def of PEOPLE){
-  const a=makeHumanoid(def.look); a.kind='npc'; a.def=def; a.met=false; a.talking=false; a.place=null; a.goal=null; a.waitT=0; a.patrolI=0; a.barkT=rnd(5,20); a.otherI=0; a.favorDay=0; a.favorDone=false; a.askedThings=false;
+  const a=makeHumanoid(def.look); a.dead=false; a.kind='npc'; a.def=def; a.met=false; a.talking=false; a.place=null; a.goal=null; a.waitT=0; a.patrolI=0; a.barkT=rnd(5,20); a.otherI=0; a.favorDay=0; a.favorDone=false; a.askedThings=false;
   for(const t of def.topics) t.done=false;
   const want=desiredPlace(a); let p=placePoint(want); if(!p) p=PLACES[want].points[0]; placeActor(a,p.x,p.z);
   a.it=addInteract({x:p.x,y:1.5*(def.look.scale||1),z:p.z,r:2.6,
-    label:()=>`Talk to ${def.name}`+(hasNewTopic(a)?' <em>· has something to tell you</em>':''),
+    enabled:()=>!a.dead, label:()=>`Talk to ${def.name}`+(hasNewTopic(a)?' <em>· has something to tell you</em>':''),
     act:()=>startTalk(a)});
   npcs.push(a);
 }
@@ -1228,14 +1264,17 @@ function hasNewTopic(a){ if(!a.met) return false; const t=pendingTopic(a); retur
 function showSay(name,text){ $('sub').className='say'; $('sub').innerHTML=`<b>${name}</b>“${text}”`; $('sub').style.opacity=1; subT=4; }
 function updateNPCs(dt,extraN,outsideAtDusk){
   for(const a of npcs){
+    if(a.dead) continue;
     a.it.x=a.pos.x; a.it.z=a.pos.z;
     const dP=dist(a.pos,S.pos);
     if(a.talking){ a.g.rotation.y=Math.atan2(S.pos.x-a.pos.x,S.pos.z-a.pos.z); idlePose(a,dt); a.head.rotation.y*=0.8; continue; }
     const want=desiredPlace(a), P=PLACES[want];
     if(a.place!==want){ a.place=want; a.goal=P.points?P.points[a.patrolI%P.points.length]:placePoint(want); a.waitT=0; }
-    if(isNight() && a.place===a.def.home && buildingAt(a.pos.x,a.pos.z)!==B[a.def.home]){ const p=placePoint(a.def.home); placeActor(a,p.x,p.z); a.goal=p; a.via=null; }
+    if(isNight() && S.late!==a && a.place===a.def.home && buildingAt(a.pos.x,a.pos.z)!==B[a.def.home]){ const p=placePoint(a.def.home); placeActor(a,p.x,p.z); a.goal=p; a.via=null; }
     const d=dist(a.pos,a.goal);
-    const hurry=(S.hour>=17.6&&S.hour<20)?1.7:1;
+    const hunted=creatures.some(c=>c.prey===a && dist(c.pos,a.pos)<18);
+    if(hunted && a.place!==a.def.home && B[a.def.home].talisman){ a.place=a.def.home; a.goal=placePoint(a.def.home); a.waitT=0; }
+    const hurry=hunted?Math.min(2.4,3.2/a.def.speed):(S.hour>=17.6||S.hour<6)?1.7:1;
     if(d<0.5 || (a.blocked && d<2.2)){
       idlePose(a,dt); a.waitT-=dt;
       if(a.waitT<=0){ a.waitT=P.points?rnd(3,6):rnd(6,14); if(P.points){ a.patrolI++; a.goal=P.points[a.patrolI%P.points.length]; } else a.goal=placePoint(a.place); a.blocked=false; }
@@ -1401,6 +1440,7 @@ const sfx={
   scream:()=>{ const [x,z]=around(70,120), o=out(x,z); burst(1300,1.4,0.04,0,'bandpass',o,0.1); const os=tone(900,1.6,0.05,'sawtooth',0,0.08,o); if(os) os.frequency.exponentialRampToValueAtTime(260,A.ctx.currentTime+1.6); },
   twig:()=>{ const [x,z]=behind(6,14), o=out(x,z); burst(2500,0.04,0.5,0,'highpass',o); burst(1800,0.03,0.3,0.09,'highpass',o); },
   giggle:()=>{ const [x,z]=around(20,40), o=out(x,z); for(let i=0;i<6;i++) tone(620+Math.random()*260,0.09,0.05,'triangle',i*0.12,0.01,o); },
+  screamAt:(x,z)=>{ const o=out(x,z); burst(1300,1.2,0.09,0,'bandpass',o,0.1); const os=tone(820,1.4,0.1,'sawtooth',0,0.06,o); if(os) os.frequency.exponentialRampToValueAtTime(240,A.ctx.currentTime+1.4); },
   dawn:()=>{ for(const [f,w] of [[220,0],[277.2,0.3],[329.6,0.6],[440,1.2]]) mtone(f,6,0.04,'sine',w,1.5); },
 };
 function playNote(nightF,tense){
@@ -1559,14 +1599,17 @@ function updateLighting(){
 }
 
 // ---------- death / respawn / win ----------
+function mourn(){ const l=S.lostTonight.splice(0); if(!l.length) return '';
+  const n=l.map(shortName); return ` <span style="color:#e2574c">${n.length>1?n.slice(0,-1).join(', ')+' and '+n[n.length-1]:n[0]} didn't make it through the night.</span>`; }
 function die(){
   if(S.dead) return; S.dead=true; S.deathT=0; S.deaths++; sfx.death(); closeUI();
-  $('deathTxt').textContent=`You wake on the diner floor with Marisol Boone kneeling over you. It's morning. Nobody can tell you how you got back. Day ${S.day+1}.`;
+  const finder=npcs.find(a=>a.def.id==='marisol'&&!a.dead)||npcs.find(a=>!a.dead);
+  $('deathTxt').textContent=`You wake on the diner floor${finder?` with ${finder.def.name} kneeling over you`:', alone'}. It's morning. Nobody can tell you how you got back. Day ${S.day+1}.`;
   setTimeout(()=>{ if(S.dead) $('death').hidden=false; },700);
 }
 function respawn(){
   S.dead=false; $('death').hidden=true; clearCreatures(); S.day++; S.hour=7; S.pos={x:-11,z:0}; S.yaw=-Math.PI/2; S.pitch=0; S.stamina=1; S.crank=0; S.fed=false; S.coffee=false;
-  showMsg(`Day ${S.day}. Your chest aches where their hands were.`);
+  showMsg(`Day ${S.day}. Your chest aches where their hands were.`+mourn()); pickLate();
 }
 function win(){
   S.won=true; closeUI(); sfx.bell();
@@ -1588,10 +1631,10 @@ function update(dt){
   const pb=buildingAt(S.pos.x,S.pos.z), safe=!!(pb&&pb.talisman);
   const waiting=keys.KeyT && safe && (isNight()||S.hour>=19) && !S.ui;
   hourPrev=S.hour; S.hour+=dt/HOUR_SEC*(waiting?14:1); if(S.hour>=24) S.hour-=24;
-  if(crossed(hourPrev,S.hour,18.5)) showMsg('The light is going. People are heading indoors. You should too.');
+  if(crossed(hourPrev,S.hour,18.5)) showMsg('The light is going. People are heading indoors. You should too.'+(S.late&&!S.late.dead?` Nobody has seen ${shortName(S.late)} start for home.`:''));
   if(crossed(hourPrev,S.hour,19.5)) sfx.bell();
   if(crossed(hourPrev,S.hour,20)){ spawnNight(); showMsg(safe?'Night. Stay where you are.':'Night. They\'re out of the trees.'); }
-  if(crossed(hourPrev,S.hour,6)){ S.day++; S.fed=false; S.coffee=false; for(const c of creatures){ c.state='leave'; c.leaveT=0; } showMsg(`Day ${S.day}. They walk back into the trees as if nothing happened.`); sfx.dawn(); }
+  if(crossed(hourPrev,S.hour,6)){ S.day++; S.fed=false; S.coffee=false; for(const c of creatures){ c.state='leave'; c.leaveT=0; } showMsg(`Day ${S.day}. They walk back into the trees as if nothing happened.`+mourn()); sfx.dawn(); pickLate(); }
 
   const closedDoors=doors.filter(d=>!d.open).map(d=>d.box);
   const frozen=S.ui==='tuner'||S.ui==='note'||S.ui==='dialog';
@@ -1600,7 +1643,7 @@ function update(dt){
   if(S.stamina<=0.02) S.tired=true; if(S.tired&&S.stamina>0.35) S.tired=false;
   S.sprinting=!!(moving && (keys.ShiftLeft||keys.ShiftRight) && !S.tired && iz>=0);
   S.stamina=clamp(S.stamina+(S.sprinting?-dt/(S.coffee?9:6):dt/(S.fed?5:9)),0,1);
-  const speed=S.sprinting?6.4:(S.tired?2.6:3.6);
+  const speed=S.sprinting?6.4:(S.tired?2.6:WALK);
   if(moving){
     const fx=-Math.sin(S.yaw), fz=-Math.cos(S.yaw), rx=Math.cos(S.yaw), rz=-Math.sin(S.yaw);
     let vx=fx*iz+rx*ix, vz=fz*iz+rz*ix; const l=Math.hypot(vx,vz); vx/=l; vz/=l;
@@ -1704,7 +1747,7 @@ function frame(now){
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-if(location.hash==='#debug') window.__he={S,creatures,buildings,keys,npcs,doors,B,learn,step:(n)=>{ for(let i=0;i<n && !S.dead && !S.won;i++) update(0.05); }};
+if(location.hash==='#debug') window.__he={S,creatures,killNPC,pickLate,buildings,keys,npcs,doors,B,learn,step:(n)=>{ for(let i=0;i<n && !S.dead && !S.won;i++) update(0.05); }};
 })();
 </script>
 </body>

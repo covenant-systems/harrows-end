@@ -49,6 +49,8 @@ You wake up in your wrecked car on the road south of town at 2 p.m. Your flashli
 
 Everyone keeps a daily routine: out to work in the morning, home before dark. They open and close doors as they go, glance at you as you pass, say hello, and shout at you to get inside if they catch you out at dusk. You can stay the night with any of them.
 
+The townsfolk aren't safe either. The things at night hunt anyone they find outside or in a room without a talisman. Some evenings one of the grown-ups loses track of time and starts home after dark (you'll hear at dusk that nobody has seen them leave). If you take the talisman off someone's wall, the creatures can smell that house from across town. Whoever dies stays dead. They leave their things where they fell, and if they knew something you needed, you'll find it written there.
+
 Talking to someone opens a menu: ask about getting out, about the things at night, about the other townsfolk, ask for a favor (coffee from Marisol makes running less tiring, bread from Ruth helps you get your breath back, Dale and Nessa hand over batteries, Eli shares a survival tip), or just chat. Options with something new to hear are marked.
 
 The buildings have working doors, clear glass windows you can see through in both directions, porches, shutters, chimneys and furnished interiors split into rooms. The Boone house and the farmhouse have a living room with a kitchen and fireplace, and a bedroom behind. The sheriff's office has two fully enclosed barred cells. The diner has a kitchen behind the counter, the Lantern has a storeroom where the Reillys sleep, and the clinic has a waiting room and an exam room. There's also a general store, a gas station and a water tower. The barn, Hal Cobb's house, the chapel, the store, the gas station and the empty house have no talisman.
@@ -59,16 +61,16 @@ All sound is generated in the browser. There's a low drone that darkens as night
 
 ## The things at night
 
-Most of them look like ordinary people with a smile that's too wide. Some you'll learn to recognize. Each one has its own look, its own way of hunting and its own voice at the door. The townsfolk will warn you about them, and the first time you see one, it goes into your journal.
+Most of them look like ordinary people with a smile that's too wide. Some you'll learn to recognize. Each one has its own look, its own way of hunting and its own voice at the door. None of them moves faster than you walk, so if you keep moving and don't get cornered you can stay ahead, and running buys you distance until your breath gives out. The townsfolk will warn you about them, and the first time you see one, it goes into your journal.
 
 | Creature | First night | What it does |
 | --- | --- | --- |
 | The Milkman | 1 | White uniform, cap, a crate of bottles. Walks a route door to door every night, rattling his bottles and offering a delivery. You hear the clink before you see him. |
 | The Bride | 1 | Grey-hemmed wedding dress, veil, bouquet. Hums the wedding march. Slower than you, but once she has seen you she never gives up until morning. |
-| The Boxer | 2 | Red gloves and trunks, guard up. Charges in bursts faster than you can run, then stops and bounces on his toes. Run while he's waiting for the bell. |
+| The Boxer | 2 | Red gloves and trunks, guard up. Charges in long bursts, then stops and bounces on his toes. Run while he's waiting for the bell. |
 | The Twins | 2 | Two women in matching yellow sweaters. Move side by side and say everything twice. |
 | The Gentleman | 3 | Top hat, tailcoat, cane. Slow and polite, but when he spots you he rings a bell and every creature nearby comes for you. |
-| The Nurse | 3 | White uniform and cap. Claims Dr. Vance sent her. Faster than the rest. |
+| The Nurse | 3 | White uniform and cap. Claims Dr. Vance sent her. Dr. Vance has never had a nurse. |
 
 ## How it works
 
