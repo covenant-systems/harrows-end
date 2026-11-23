@@ -379,8 +379,8 @@ function makeBuilding(def){
     ? {minX:b.doorC.x-dw/2-0.1,maxX:b.doorC.x+dw/2+0.1,minZ:b.doorC.z-0.3,maxZ:b.doorC.z+0.3}
     : {minX:b.doorC.x-0.3,maxX:b.doorC.x+0.3,minZ:b.doorC.z-dw/2-0.1,maxZ:b.doorC.z+dw/2+0.1};
   b.inner={minX:x-hw+t/2,maxX:x+hw-t/2,minZ:z-hd+t/2,maxZ:z+hd-t/2};
-  // clear glass: see in, see out. It glows warm at night when someone is home.
-  b.winMat=new THREE.MeshLambertMaterial({color:0x9fb4bc,emissive:0xffa24a,emissiveIntensity:0,transparent:true,opacity:0.14,side:THREE.DoubleSide,depthWrite:false});
+  // clear glass: see in, see out, day or night.
+  b.winMat=new THREE.MeshLambertMaterial({color:0x9fb4bc,transparent:true,opacity:0.14,side:THREE.DoubleSide,depthWrite:false});
   b.windows=[];
   const addWindow=(cx,cz,ax,out)=>{
     const ry=ax==='x'?0:Math.PI/2, along=ax==='x'?[1,0]:[0,1];
@@ -1551,7 +1551,6 @@ function updateLighting(){
   hemi.intensity=0.1+0.55*f; hemi.color.setHex(f>0.3?0xc4cacf:0x5a6a8a);
   sun.intensity=0.04+0.62*f; sun.color.copy(cSun.set(0xfff1dd).lerp(cDusk2,duskW*0.6));
   const nightF=1-f;
-  for(const b of buildings){ const lit=b.talisman?nightF:0; b.winMat.emissiveIntensity=lit*0.9; b.winMat.opacity=0.14+lit*0.32; }
   M.bulb.color.setHex(nightF>0.5?0xffd9a0:0x555555);
   let fi=0; if(S.flashlight){ fi=2.0; if(S.battery<0.15) fi=Math.random()<0.12?0.15:0.5+1.5*S.battery/0.15; }
   flash.intensity=fi;
