@@ -30,11 +30,37 @@ Then go to http://localhost:8000.
 | M | Map (if you can find one) |
 | J / Tab | Journal: leads, what people told you, notes |
 | T | Hold to wait for dawn while protected |
+| Z | Sleep where you stand (floor or ground) |
 | N | Music on or off |
 
 ## Getting started
 
 You wake up in your wrecked car on the road south of town at 2 p.m. Your flashlight and two spare batteries are in the trunk. The flashlight drains while it's on (a set of batteries lasts about one night), so you'll want spares: you can find them in the sheriff's office, the general store, the gas station and the Tanners' barn, and two of the townsfolk will give you some if you ask.
+
+## Sleep
+
+You have to sleep. Stay awake too long and you get tired, then exhausted, then delirious: your stamina shrinks and is slower to come back, the edges of the screen blur and darken, you lose seconds to microsleeps, and you start seeing and hearing things that aren't there (figures in your peripheral vision that vanish when you look, knocking at the door, footsteps behind you, a friend calling your name).
+
+Press **E** on a bed, cot, couch or armchair to sleep there, or **Z** to lie down wherever you are. Where you sleep matters:
+
+| Where | How well you rest |
+| --- | --- |
+| Bed | Best. A full night's rest in about seven hours |
+| Cot | Nearly as good |
+| Couch | Decent |
+| Armchair | Poor, and you wake up sore |
+| Floor | Poor, and you wake up sore |
+| Ground | Worst. And if it's night and you're outside, something will probably find you |
+
+Sore means less stamina until you get a proper night's sleep.
+
+At night the things outside knock, rattle bottles, tap on the glass and say your name, and any of it can wake you. Every time they do, you get a little more insomnia: it takes longer to fall asleep, sleep restores you less, and you get tired faster. Bad enough insomnia makes you delirious even when you've slept. A long, unbroken sleep eases it.
+
+To sleep through the night:
+- **Earplugs.** There's a tin of wax earplugs by the till in the general store.
+- **A back room.** Sleep in a bedroom or storeroom behind an interior wall, away from the door and front windows.
+- **Company.** Sleep in a house where some of the townsfolk are.
+- **Dr. Vance's draught.** If you look like you're not sleeping, her check-up comes with a sleeping draught. Almost nothing will wake you, so only take it behind a talisman.
 
 ## The town
 
