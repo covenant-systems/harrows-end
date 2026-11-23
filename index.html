@@ -1,0 +1,973 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8">
+<title>Harrow's End</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Special+Elite&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: full-bleed WebGL canvas with a sparse HUD pinned to the corners; paper overlays for notes, journal and map. Single dark look by choice. */
+:root{
+  --night:#07080b;
+  --ink:#e8e1cf;
+  --dim:#9b947f;
+  --blood:#a3231b;
+  --ward:#8fc4b4;
+  --warn:#d9a24a;
+  --paper:#d8ccaf;
+  --paper-ink:#2b2419;
+  --font-title:"IM Fell English SC", Georgia, "Times New Roman", serif;
+  --font-hand:"Special Elite", "Courier New", monospace;
+  --font-mono:"IBM Plex Mono", ui-monospace, Consolas, monospace;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;background:var(--night);color:var(--ink);overflow:hidden;font-family:var(--font-mono)}
+#game{position:fixed;inset:0}
+#game canvas{display:block;width:100%;height:100%}
+#vignette{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.75) 100%)}
+#danger{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 35%,rgba(120,8,4,.65) 100%);opacity:0;transition:opacity .25s}
+#hud{position:fixed;inset:0;pointer-events:none}
+#compass{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:min(420px,70vw);height:26px;overflow:hidden;
+  border-bottom:1px solid rgba(232,225,207,.25);mask-image:linear-gradient(90deg,transparent,#000 20%,#000 80%,transparent)}
+#compass span{position:absolute;top:2px;transform:translateX(-50%);font-size:13px;letter-spacing:.12em;color:var(--dim)}
+#compass span.card{color:var(--ink);font-weight:600}
+#compass span.loc{color:var(--warn);font-size:11px;top:6px}
+#compass .tick{position:absolute;left:50%;bottom:0;width:1px;height:8px;background:var(--ink)}
+#clock{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));left:calc(18px + env(safe-area-inset-left,0px));display:grid;gap:2px}
+#dayLbl{font-family:var(--font-title);font-size:22px;letter-spacing:.04em}
+#timeLbl{font-size:15px;font-variant-numeric:tabular-nums}
+#phaseLbl{font-size:12px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase}
+#phaseLbl.warn{color:var(--warn)} #phaseLbl.bad{color:#e2574c}
+#status{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));right:calc(18px + env(safe-area-inset-right,0px));font-size:12px;letter-spacing:.1em;text-transform:uppercase;padding:5px 9px;border:1px solid currentColor;border-radius:3px}
+#status.safe{color:var(--ward)} #status.unsafe{color:#e2574c} #status.out{color:var(--dim);border-color:transparent}
+#inv{position:absolute;left:calc(18px + env(safe-area-inset-left,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));display:grid;gap:4px;font-size:13px}
+#inv .row{display:flex;gap:8px;align-items:center}
+#inv .k{color:var(--dim);min-width:84px;font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+#stam{position:absolute;left:50%;bottom:calc(26px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:160px;height:3px;background:rgba(255,255,255,.08);opacity:0;transition:opacity .4s}
+#stam i{display:block;height:100%;background:var(--ink);width:100%}
+#cross{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:rgba(232,225,207,.7)}
+#prompt{position:absolute;left:50%;top:calc(50% + 34px);transform:translateX(-50%);font-size:14px;white-space:nowrap;text-shadow:0 1px 3px #000}
+#prompt b{display:inline-block;border:1px solid var(--ink);border-radius:3px;padding:0 6px;margin-right:8px;font-weight:600}
+#hold{position:absolute;left:50%;top:calc(50% + 62px);transform:translateX(-50%);width:180px;height:4px;background:rgba(255,255,255,.12)}
+#hold i{display:block;height:100%;width:0;background:var(--warn)}
+#msg{position:absolute;left:50%;bottom:22%;transform:translateX(-50%);width:min(640px,88vw);text-align:center;font-family:var(--font-hand);font-size:19px;line-height:1.45;text-shadow:0 2px 6px #000;transition:opacity .6s}
+#sub{position:absolute;left:50%;bottom:13%;transform:translateX(-50%);width:min(600px,88vw);text-align:center;font-family:var(--font-hand);font-style:italic;color:#d6b2a8;font-size:17px;text-shadow:0 2px 6px #000;transition:opacity .8s}
+.screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(5,6,9,.88);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px;box-sizing:border-box;overflow-y:auto}
+.screen .inner{max-width:620px;display:grid;gap:18px}
+.screen h1{font-family:var(--font-title);font-weight:400;font-size:clamp(44px,9vw,84px);margin:0;line-height:.95;letter-spacing:.02em;text-wrap:balance}
+.screen h2{font-family:var(--font-title);font-weight:400;font-size:clamp(32px,6vw,52px);margin:0;text-wrap:balance}
+.screen p{font-family:var(--font-hand);font-size:17px;line-height:1.6;margin:0;color:#cfc7b2;max-width:62ch}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:13px;color:var(--dim)}
+.keys kbd{font-family:var(--font-mono);color:var(--ink);border:1px solid rgba(232,225,207,.35);border-radius:3px;padding:1px 6px;font-size:12px;justify-self:start}
+.btn{pointer-events:auto;justify-self:start;font-family:var(--font-mono);font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:var(--night);background:var(--ink);border:0;border-radius:3px;padding:12px 20px;cursor:pointer}
+.btn:focus-visible{outline:2px solid var(--warn);outline-offset:3px}
+.small{font-size:12px;color:var(--dim);font-family:var(--font-mono)}
+#death{background:radial-gradient(ellipse at center,rgba(60,4,2,.85),rgba(5,0,0,.97))}
+#death h2{color:#e9c3bb}
+.paper{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-.6deg);width:min(520px,calc(100vw - 32px));max-height:calc(100vh - 80px);overflow-y:auto;box-sizing:border-box;
+  background:var(--paper);color:var(--paper-ink);font-family:var(--font-hand);font-size:16px;line-height:1.6;padding:26px 28px;box-shadow:0 20px 60px rgba(0,0,0,.7)}
+.paper h3{font-family:var(--font-title);font-weight:400;font-size:26px;margin:0 0 10px}
+.paper .close{margin-top:16px;font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;opacity:.6}
+.paper ul{list-style:none;padding:0;margin:0 0 14px;display:grid;gap:6px}
+.paper li{display:grid;grid-template-columns:22px 1fr;gap:4px}
+.paper li.done{opacity:.55;text-decoration:line-through}
+.paper hr{border:0;border-top:1px dashed rgba(43,36,25,.4);margin:14px 0}
+#mapWrap{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) rotate(.5deg);box-shadow:0 20px 60px rgba(0,0,0,.7)}
+#mapC{display:block;width:min(600px,calc(100vw - 32px),calc(100vh - 60px));height:auto;aspect-ratio:1}
+#tuner{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(480px,calc(100vw - 32px));box-sizing:border-box;background:#14130f;border:1px solid #4a4433;border-radius:6px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.8);display:grid;gap:14px}
+#freq{font-size:44px;font-weight:600;color:#ffb94d;text-shadow:0 0 12px rgba(255,170,60,.5);font-variant-numeric:tabular-nums;text-align:center}
+#band{position:relative;height:30px;background:repeating-linear-gradient(90deg,#3a3528 0 1px,transparent 1px 12px);border-bottom:1px solid #6a604a}
+#needle{position:absolute;top:0;bottom:0;width:2px;background:#e2574c}
+#clar{height:4px;background:#2a271f}#clar i{display:block;height:100%;background:#ffb94d;width:0}
+#transcript{font-family:var(--font-hand);font-size:15px;color:#d8ccaf;min-height:66px;line-height:1.5}
+@media (prefers-reduced-motion:reduce){#msg,#sub,#danger{transition:none}}
+</style>
+</head>
+<body>
+
+<div id="game"></div>
+<div id="vignette"></div>
+<div id="danger"></div>
+
+<div id="hud" hidden>
+  <div id="compass"><div class="tick"></div></div>
+  <div id="clock"><span id="dayLbl">Day 1</span><span id="timeLbl">07:00</span><span id="phaseLbl">Morning</span></div>
+  <div id="status" class="out"></div>
+  <div id="inv"></div>
+  <div id="stam"><i></i></div>
+  <div id="cross"></div>
+  <div id="prompt"></div>
+  <div id="hold" hidden><i></i></div>
+  <div id="msg"></div>
+  <div id="sub"></div>
+</div>
+
+<div id="title" class="screen">
+  <div class="inner">
+    <h1>Harrow's End</h1>
+    <p>The highway was closed, so you took the detour. A tree across the road, a crunch of metal, and then a town that isn't on any map. Nobody answers the doors. The people who lived here left notes behind, and every one of them says the same thing: <em>be inside before dark.</em></p>
+    <div class="keys">
+      <kbd>W A S D</kbd><span>Walk &nbsp;·&nbsp; <kbd>Shift</kbd> to run</span>
+      <kbd>Mouse</kbd><span>Look around</span>
+      <kbd>E</kbd><span>Use, read, pick up (hold for some things)</span>
+      <kbd>F</kbd><span>Flashlight</span>
+      <kbd>M</kbd><span>Map (once you have one)</span>
+      <kbd>J</kbd><span>Journal: objectives and notes</span>
+      <kbd>T</kbd><span>Hold to wait for dawn while protected</span>
+    </div>
+    <p class="small" id="touchWarn" hidden>This game needs a keyboard and mouse.</p>
+    <button class="btn" id="startBtn">Enter the town</button>
+  </div>
+</div>
+
+<div id="pause" class="screen" hidden>
+  <div class="inner"><h2>Paused</h2><p>The town waits. It always waits.</p><button class="btn" id="resumeBtn">Resume</button></div>
+</div>
+<div id="death" class="screen" hidden>
+  <div class="inner"><h2>They found you.</h2><p id="deathTxt"></p></div>
+</div>
+<div id="win" class="screen" hidden>
+  <div class="inner"><h2>The road goes on.</h2><p id="winTxt"></p><button class="btn" id="againBtn">Play again</button></div>
+</div>
+
+<div id="note" class="paper" hidden><div id="noteBody"></div><div class="close">E or Esc to put it down</div></div>
+<div id="journal" class="paper" hidden><div id="journalBody"></div><div class="close">J to close</div></div>
+<div id="mapWrap" hidden><canvas id="mapC" width="640" height="640"></canvas></div>
+<div id="tuner" hidden>
+  <div class="small" style="letter-spacing:.12em;text-transform:uppercase">Shortwave receiver &nbsp;·&nbsp; A / D or mouse wheel to tune &nbsp;·&nbsp; E to step away</div>
+  <div id="freq">88.0</div>
+  <div id="band"><div id="needle"></div></div>
+  <div id="clar"><i></i></div>
+  <div id="transcript"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+"use strict";
+// ---------- helpers ----------
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b) => v<a?a:v>b?b:v;
+const lerp = (a,b,t) => a+(b-a)*t;
+const dist = (a,b) => Math.hypot(a.x-b.x, a.z-b.z);
+const smooth = t => { t=clamp(t,0,1); return t*t*(3-2*t); };
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const R = mulberry32(90210);
+const rnd = (a,b) => a+Math.random()*(b-a);
+const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+
+if (matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches) $('touchWarn').hidden = false;
+
+const WORLD = 240;          // the world wraps at |x| or |z| > WORLD
+const HOUR_SEC = 15;        // real seconds per in-game hour
+const NIGHT_START = 20, NIGHT_END = 6;
+
+// ---------- renderer / scene ----------
+let renderer;
+try { renderer = new THREE.WebGLRenderer({antialias:true}); }
+catch(e){ document.querySelector('#title .inner').insertAdjacentHTML('beforeend','<p>WebGL is not available in this browser, so the town cannot load.</p>'); $('startBtn').hidden=true; return; }
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
+renderer.setSize(innerWidth, innerHeight);
+$('game').appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x8b9196, 0.012);
+scene.background = new THREE.Color(0x8b9196);
+const camera = new THREE.PerspectiveCamera(72, innerWidth/innerHeight, 0.08, 420);
+camera.rotation.order = 'YXZ';
+scene.add(camera);
+
+const hemi = new THREE.HemisphereLight(0xc4cacf, 0x2b2a22, 0.6); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff1dd, 0.6); sun.position.set(80,120,40); scene.add(sun);
+const flash = new THREE.SpotLight(0xfff2d6, 0, 48, 0.42, 0.55, 1.1);
+flash.position.set(0.18,-0.12,0); camera.add(flash); flash.target.position.set(0,-0.05,-1); camera.add(flash.target);
+const roomLight = new THREE.PointLight(0xffb36b, 0, 15, 1.4); scene.add(roomLight);
+
+addEventListener('resize', () => { camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+
+// ---------- textures ----------
+function canvasTex(w,h,draw){ const c=document.createElement('canvas'); c.width=w;c.height=h; draw(c.getContext('2d'),w,h); const t=new THREE.CanvasTexture(c); return t; }
+const groundTex = canvasTex(256,256,(g,w,h)=>{ g.fillStyle='#3b4231'; g.fillRect(0,0,w,h);
+  for(let i=0;i<5000;i++){ const v=R(); g.fillStyle = v<.4?'rgba(70,62,44,.5)':v<.8?'rgba(40,52,34,.6)':'rgba(95,100,72,.35)'; g.fillRect(R()*w,R()*h,1+R()*3,1+R()*3);} });
+groundTex.wrapS=groundTex.wrapT=THREE.RepeatWrapping; groundTex.repeat.set(140,140);
+const roadTex = canvasTex(64,256,(g,w,h)=>{ g.fillStyle='#2d2d2c'; g.fillRect(0,0,w,h);
+  for(let i=0;i<900;i++){ g.fillStyle=`rgba(${R()<.5?90:20},${R()<.5?90:20},${R()<.5?88:20},.35)`; g.fillRect(R()*w,R()*h,1,1);}
+  g.fillStyle='#8a7a3c'; g.fillRect(w/2-1.5,20,3,90); g.fillStyle='#6d6d66'; g.fillRect(2,0,2,h); g.fillRect(w-4,0,2,h); });
+roadTex.wrapS=roadTex.wrapT=THREE.RepeatWrapping; roadTex.repeat.set(1,(WORLD*2+240)/16);
+function textTex(lines,w,h,bg,fg,font){ return canvasTex(w,h,(g)=>{ g.fillStyle=bg; g.fillRect(0,0,w,h); g.fillStyle=fg; g.textAlign='center'; g.textBaseline='middle';
+  lines.forEach((l,i)=>{ g.font=l.f||font; g.fillText(l.t, w/2, h*(i+1)/(lines.length+1)); }); }); }
+
+// ---------- ground & road ----------
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(WORLD*2+240, WORLD*2+240), new THREE.MeshLambertMaterial({map:groundTex}));
+ground.rotation.x=-Math.PI/2; scene.add(ground);
+const road = new THREE.Mesh(new THREE.PlaneGeometry(8, WORLD*2+240), new THREE.MeshLambertMaterial({map:roadTex}));
+road.rotation.x=-Math.PI/2; road.position.y=0.02; scene.add(road);
+
+// ---------- collision ----------
+const boxes = [];       // static AABBs {minX,maxX,minZ,maxZ}
+const grid = new Map(); // circles (trees, props) by cell
+const CELL = 8;
+function addBox(cx,cz,sx,sz){ const b={minX:cx-sx/2,maxX:cx+sx/2,minZ:cz-sz/2,maxZ:cz+sz/2}; boxes.push(b); return b; }
+function addCircle(x,z,r){ const k=Math.floor(x/CELL)+','+Math.floor(z/CELL); if(!grid.has(k)) grid.set(k,[]); grid.get(k).push({x,z,r}); }
+function pushBox(p,r,b){
+  const cx=clamp(p.x,b.minX,b.maxX), cz=clamp(p.z,b.minZ,b.maxZ); const dx=p.x-cx, dz=p.z-cz; const d2=dx*dx+dz*dz;
+  if(d2>=r*r) return false;
+  if(d2>1e-9){ const d=Math.sqrt(d2); p.x=cx+dx/d*r; p.z=cz+dz/d*r; }
+  else { const l=p.x-b.minX, rr=b.maxX-p.x, t=p.z-b.minZ, bb=b.maxZ-p.z, m=Math.min(l,rr,t,bb);
+    if(m===l)p.x=b.minX-r; else if(m===rr)p.x=b.maxX+r; else if(m===t)p.z=b.minZ-r; else p.z=b.maxZ+r; }
+  return true;
+}
+function collide(p,r,extra){
+  for(let it=0;it<2;it++){
+    for(const b of boxes) pushBox(p,r,b);
+    if(extra) for(const b of extra) pushBox(p,r,b);
+    const gx=Math.floor(p.x/CELL), gz=Math.floor(p.z/CELL);
+    for(let i=-1;i<=1;i++) for(let j=-1;j<=1;j++){ const cell=grid.get((gx+i)+','+(gz+j)); if(!cell) continue;
+      for(const c of cell){ const dx=p.x-c.x, dz=p.z-c.z, d=Math.hypot(dx,dz), m=r+c.r; if(d<m && d>1e-6){ p.x=c.x+dx/d*m; p.z=c.z+dz/d*m; } } }
+  }
+}
+
+// ---------- interactables ----------
+const inter = [];
+function addInteract(o){ inter.push(o); return o; }
+
+// ---------- materials ----------
+const M = {
+  roof: new THREE.MeshLambertMaterial({color:0x3a302b}),
+  floor: new THREE.MeshLambertMaterial({color:0x5a4634}),
+  ceil: new THREE.MeshLambertMaterial({color:0x6c6457}),
+  wood: new THREE.MeshLambertMaterial({color:0x5b412c}),
+  dark: new THREE.MeshLambertMaterial({color:0x1d1c1b}),
+  metal: new THREE.MeshLambertMaterial({color:0x4b4e50}),
+  stone: new THREE.MeshLambertMaterial({color:0x6b6c68}),
+  fabric: new THREE.MeshLambertMaterial({color:0x6a5a52}),
+  paper: new THREE.MeshBasicMaterial({color:0xcfc4a6}),
+  bulb: new THREE.MeshBasicMaterial({color:0x555555}),
+  iron: new THREE.MeshLambertMaterial({color:0x2a2a2c}),
+};
+function box(sx,sy,sz,mat,x,y,z,parent=scene){ const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),mat); m.position.set(x,y,z); parent.add(m); return m; }
+
+// ---------- buildings ----------
+const buildings = [];
+function makeTalismanMesh(){
+  const g=new THREE.Group();
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(0.17,0.03,6,18), M.iron); g.add(ring);
+  const stoneMat=new THREE.MeshLambertMaterial({color:0x7d8a84, emissive:0x3f8f7a, emissiveIntensity:0.5});
+  const s=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,0.05,10), stoneMat); s.rotation.x=Math.PI/2; g.add(s);
+  const cord=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.35,4), M.dark); cord.position.y=0.34; g.add(cord);
+  return g;
+}
+function makeBuilding(def){
+  const b=Object.assign({h:3.2, talisman:false}, def);
+  const {x,z,w,d,h,door}=b, t=0.3, dw=1.7, dh=2.4, hw=w/2, hd=d/2;
+  const g=new THREE.Group(); scene.add(g); b.group=g;
+  const wallMat=new THREE.MeshLambertMaterial({color:b.color});
+  const seg=(cx,cz,sx,sz,y0,y1,col=true)=>{ box(sx,y1-y0,sz,wallMat,cx,(y0+y1)/2,cz,g); if(col) addBox(cx,cz,sx,sz); };
+  const sides={N:{cx:x,cz:z-hd,len:w+t,ax:'x'},S:{cx:x,cz:z+hd,len:w+t,ax:'x'},W:{cx:x-hw,cz:z,len:d-t,ax:'z'},E:{cx:x+hw,cz:z,len:d-t,ax:'z'}};
+  b.winMat=new THREE.MeshLambertMaterial({color:0x161b20, emissive:0xffa24a, emissiveIntensity:0, side:THREE.DoubleSide});
+  for(const [k,s] of Object.entries(sides)){
+    if(k!==door){
+      if(s.ax==='x') seg(s.cx,s.cz,s.len,t,0,h); else seg(s.cx,s.cz,t,s.len,0,h);
+      // windows on non-door walls
+      const nw = Math.max(1, Math.floor((s.ax==='x'?w:d)/5));
+      for(let i=0;i<nw;i++){
+        const off=((i+0.5)/nw-0.5)*(s.ax==='x'?w:d);
+        for(const side of [-1,1]){
+          const pl=new THREE.Mesh(new THREE.PlaneGeometry(1.1,0.9), b.winMat);
+          if(s.ax==='x'){ pl.position.set(s.cx+off,1.65,s.cz+side*(t/2+0.01)); }
+          else { pl.position.set(s.cx+side*(t/2+0.01),1.65,s.cz+off); pl.rotation.y=Math.PI/2; }
+          g.add(pl);
+        }
+      }
+    } else {
+      const part=(s.len-dw)/2, off=dw/2+part/2;
+      if(s.ax==='x'){ seg(s.cx-off,s.cz,part,t,0,h); seg(s.cx+off,s.cz,part,t,0,h); seg(s.cx,s.cz,dw,t,dh,h,false); }
+      else { seg(s.cx,s.cz-off,t,part,0,h); seg(s.cx,s.cz+off,t,part,0,h); seg(s.cx,s.cz,t,dw,dh,h,false); }
+    }
+  }
+  box(w,0.05,d,M.floor,x,0.03,z,g);
+  box(w+t,0.12,d+t,M.ceil,x,h+0.06,z,g);
+  const big=Math.max(w,d), roofG=new THREE.Group(); roofG.position.set(x,h+0.12,z); roofG.scale.set((w+1)/big,1,(d+1)/big); g.add(roofG);
+  const roof=new THREE.Mesh(new THREE.ConeGeometry(big/Math.SQRT2,b.roofH||2.2,4,1), M.roof); roof.rotation.y=Math.PI/4; roof.position.y=(b.roofH||2.2)/2; roofG.add(roof);
+  const n={N:[0,-1],S:[0,1],W:[-1,0],E:[1,0]}[door]; b.n=n;
+  const half=(door==='N'||door==='S')?hd:hw; b.half=half; b.otherHalf=(door==='N'||door==='S')?hw:hd;
+  b.doorC={x:x+n[0]*half, z:z+n[1]*half};
+  b.doorOut={x:b.doorC.x+n[0]*1.5, z:b.doorC.z+n[1]*1.5};
+  b.doorIn={x:b.doorC.x-n[0]*1.5, z:b.doorC.z-n[1]*1.5};
+  b.doorBox=(door==='N'||door==='S')
+    ? {minX:b.doorC.x-dw/2-0.1,maxX:b.doorC.x+dw/2+0.1,minZ:b.doorC.z-0.3,maxZ:b.doorC.z+0.3}
+    : {minX:b.doorC.x-0.3,maxX:b.doorC.x+0.3,minZ:b.doorC.z-dw/2-0.1,maxZ:b.doorC.z+dw/2+0.1};
+  b.inner={minX:x-hw+t/2,maxX:x+hw-t/2,minZ:z-hd+t/2,maxZ:z+hd-t/2};
+  // talisman hook beside door on the inside
+  const tx=-n[1], tz=n[0];
+  const hx=b.doorC.x-n[0]*0.2+tx*1.3, hz=b.doorC.z-n[1]*0.2+tz*1.3;
+  const hook=box(0.04,0.04,0.2,M.iron,hx,2.25,hz,g); hook.rotation.y=Math.atan2(n[0],n[1]);
+  b.tal=makeTalismanMesh(); b.tal.position.set(hx,2.0,hz); b.tal.rotation.y=Math.atan2(n[0],n[1]); g.add(b.tal);
+  b.tal.visible=b.talisman;
+  addInteract({x:hx,y:2.0,z:hz,r:2.6,
+    label:()=> b.talisman ? (S.carry ? 'A talisman hangs here' : 'Take the talisman') : (S.carry ? 'Hang the talisman' : 'An empty hook by the door'),
+    act:()=>{
+      if(b.talisman && !S.carry){ b.talisman=false; b.tal.visible=false; S.carry=true; sfx.pick();
+        showMsg(isNight() ? 'You lift it off the hook. Nothing stands between this room and the dark now.' : 'You take the talisman. This room is no longer protected.'); }
+      else if(!b.talisman && S.carry){ b.talisman=true; b.tal.visible=true; S.carry=false; sfx.ward();
+        showMsg('The stone settles against the wall. The air in the room goes still.'); expelFrom(b); }
+      else if(!b.talisman) showMsg('Nothing hangs here. Whatever kept this room safe is gone.');
+    }});
+  buildings.push(b);
+  return b;
+}
+function buildingAt(x,z){ for(const b of buildings){ const i=b.inner; if(x>i.minX&&x<i.maxX&&z>i.minZ&&z<i.maxZ) return b; } return null; }
+
+// ---------- notes ----------
+function addNotePost(x,z,rotY,title,text,key){
+  const g=new THREE.Group(); g.position.set(x,0,z); g.rotation.y=rotY; scene.add(g);
+  box(0.1,1.4,0.1,M.wood,0,0.7,0,g); const p=box(0.4,0.5,0.02,M.paper,0,1.35,0.06,g);
+  addCircle(x,z,0.15);
+  addInteract({x,y:1.35,z,r:2.4,label:()=> 'Read the note', act:()=>openNote(title,text,key)});
+}
+function addWallNote(x,y,z,rotY,title,text,key){
+  const p=new THREE.Mesh(new THREE.PlaneGeometry(0.4,0.5),M.paper); p.position.set(x,y,z); p.rotation.y=rotY; scene.add(p);
+  addInteract({x,y,z,r:2.4,label:()=>'Read the note',act:()=>openNote(title,text,key)});
+  return p;
+}
+
+// ---------- game state ----------
+const S = {
+  started:false, paused:false, dead:false, won:false, ui:null, locked:false, noLock:false,
+  hour:7, day:1, deaths:0, time:0,
+  pos:{x:-11,z:0}, yaw:-Math.PI/2, pitch:0, stamina:1, tired:false, bob:0, lastStep:0,
+  carry:false, hasMap:false, flashlight:false,
+  tokens:0, busDone:false, stoneSeq:0, stonesDone:false, radioDone:false, wellDone:false,
+  relics:[], placed:0, exitOpen:false, crank:0, tunedT:0, freq:88.0,
+  notesRead:{}, visited:{}, chaseSting:0
+};
+const RELIC_NAMES={soldier:'Tin soldier',glyph:'Glyph stone',tape:'Cassette tape',musicbox:'Music box'};
+
+// ---------- the town ----------
+const LOC = {
+  bus:{x:-150,z:-130,name:'The bus'},
+  stones:{x:165,z:-140,name:'The stones'},
+  radio:{x:-172,z:150,name:'Radio tower'},
+  well:{x:160,z:160,name:'The well'},
+  waystone:{x:6.5,z:-72,name:'Waystone'}
+};
+const diner = makeBuilding({name:'Diner',x:-14,z:0,w:14,d:10,door:'E',color:0x7d6b5a,talisman:true});
+makeBuilding({name:'Grey house',x:14,z:-22,w:8,d:8,door:'W',color:0x6e7b7a,talisman:true});
+makeBuilding({name:'Brown house',x:-14,z:-26,w:8,d:8,door:'E',color:0x8a7d63,talisman:false});
+makeBuilding({name:'Violet house',x:14,z:18,w:8,d:9,door:'W',color:0x6b5f6e,talisman:true});
+makeBuilding({name:'Ochre house',x:-14,z:26,w:9,d:8,door:'E',color:0x7a6f5a,talisman:true});
+makeBuilding({name:'Green house',x:15,z:46,w:8,d:8,door:'W',color:0x5f6e62,talisman:false});
+const church = makeBuilding({name:'Chapel',x:-15,z:52,w:9,d:13,door:'E',color:0xb0aa9c,talisman:false,h:4.2,roofH:3.4});
+const wellShed = makeBuilding({name:'Well shed',x:171,z:152,w:4.4,d:4.4,door:'W',color:0x5d5246,talisman:false,h:2.8,roofH:1.4});
+const radioShack = makeBuilding({name:'Radio shack',x:-162,z:150,w:5,d:4.4,door:'W',color:0x58605a,talisman:false,h:2.8,roofH:1.2});
+
+// diner sign + interior
+{ const sign=new THREE.Mesh(new THREE.PlaneGeometry(4,1), new THREE.MeshLambertMaterial({map:textTex([{t:'DINER'}],256,64,'#2a221c','#d8b06a','bold 44px Georgia')}));
+  sign.position.set(-6.82,3.6,0); sign.rotation.y=Math.PI/2; scene.add(sign);
+  box(0.8,1.05,6,M.wood,-18,0.52,0); addBox(-18,0,0.8,6);
+  for(const zz of [-3.4,3.4]){ box(1.4,0.08,1.4,M.wood,-10.5,0.8,zz); box(0.15,0.8,0.15,M.dark,-10.5,0.4,zz); addCircle(-10.5,zz,0.75); }
+  // starting note on the counter
+  const n=new THREE.Mesh(new THREE.PlaneGeometry(0.35,0.45),M.paper); n.rotation.x=-Math.PI/2; n.rotation.z=0.3; n.position.set(-17.8,1.06,0.6); scene.add(n);
+  addInteract({x:-17.8,y:1.06,z:0.6,r:2.4,label:()=>'Read the note on the counter',act:()=>openNote('Left on the counter',
+    `If you're reading this, you came in off the road like the rest of us did. There's no use driving out. We tried. The road just brings you back around.<br><br>
+    <b>The rules.</b> Be inside before dark. Only trust a room with a stone hanging by the door. Don't open up for anybody, no matter what they sound like or who they say they are.<br><br>
+    Old Hal said the town keeps four things out in the trees, and if you bring all four to the waystone by the north sign, the road lets you go. He drew a map. It's on the wall.<br><br>
+    Hal went out to get them. Hal didn't come back. <br><br>— M.`,'counter')});
+  // Hal's map on the north wall
+  const mp=new THREE.Mesh(new THREE.PlaneGeometry(0.9,0.7), new THREE.MeshBasicMaterial({color:0xc9b98f})); mp.position.set(-13,1.7,-4.83); scene.add(mp);
+  addInteract({x:-13,y:1.7,z:-4.83,r:2.6,enabled:()=>!S.hasMap,label:()=>"Take Hal's map",act:()=>{ S.hasMap=true; mp.visible=false; sfx.pick();
+    showMsg("Hal's map. Four marks in the woods, one in each corner. Press M to look at it."); }});
+}
+// chapel altar + spare talisman
+let spareTal;
+{ box(1.4,1.0,2.4,M.stone,-18.2,0.5,52); addBox(-18.2,52,1.4,2.4);
+  spareTal=makeTalismanMesh(); spareTal.position.set(-18.2,1.08,52); spareTal.rotation.x=-Math.PI/2; scene.add(spareTal);
+  addInteract({x:-18.2,y:1.1,z:52,r:2.6,enabled:()=>spareTal.visible,label:()=> S.carry?'A spare talisman (your hands are full)':'Take the spare talisman',act:()=>{
+    if(S.carry){ showMsg('You can only carry one stone at a time.'); return; }
+    spareTal.visible=false; S.carry=true; sfx.pick(); showMsg('A spare stone, still on its cord. You could hang it anywhere you need to sleep.'); }});
+  addWallNote(-19.3,1.6,49.5,Math.PI/2,'Pinned behind the altar',"Spare stone. Hang it where you'll be when it gets dark. Out in the trees there's nothing to keep you but what you bring.",'chapel');
+  // steeple
+  box(2.2,3,2.2,new THREE.MeshLambertMaterial({color:0xb0aa9c}),-15,7.7,52);
+  const sp=new THREE.Mesh(new THREE.ConeGeometry(1.7,4,4),M.roof); sp.rotation.y=Math.PI/4; sp.position.set(-15,11.2,52); scene.add(sp);
+}
+// beds in houses
+for(const b of buildings.slice(1,6)){ const bx=b.x-b.n[0]*(b.w/2-1.2), bz=b.z+ (b.d/2-1.4);
+  box(1.6,0.5,2.2,M.fabric,bx,0.25,bz); addBox(bx,bz,1.6,2.2); }
+
+// street lamps
+const lampBulbs=[];
+for(const zz of [-50,-20,10,40,70]) for(const side of [-1,1]){ if((zz/10+side)%2===0) continue;
+  const lx=side*5.2; box(0.12,4.2,0.12,M.metal,lx,2.1,zz); box(0.9,0.08,0.08,M.metal,lx-side*0.4,4.2,zz);
+  const bl=new THREE.Mesh(new THREE.SphereGeometry(0.14,8,6),M.bulb); bl.position.set(lx-side*0.8,4.08,zz); scene.add(bl); addCircle(lx,zz,0.12); }
+
+// welcome signs and the waystone
+const WELCOME=[{t:'WELCOME TO',f:'22px Georgia'},{t:"HARROW'S END",f:'bold 40px Georgia'},{t:'pop. —',f:'18px Georgia'}];
+const LEAVING=[{t:'NOW LEAVING',f:'22px Georgia'},{t:"HARROW'S END",f:'bold 40px Georgia'},{t:'come back soon',f:'italic 18px Georgia'}];
+function makeSign(x,z,front,back){ const g=new THREE.Group(); g.position.set(x,0,z); scene.add(g);
+  box(0.12,2.2,0.12,M.wood,-1.3,1.1,0,g); box(0.12,2.2,0.12,M.wood,1.3,1.1,0,g); box(3,1.2,0.06,M.wood,0,1.9,0,g);
+  const mk=(lines,rot,oz)=>{ const p=new THREE.Mesh(new THREE.PlaneGeometry(2.9,1.1),new THREE.MeshLambertMaterial({map:textTex(lines,384,146,'#e5ddc6','#2b2419','30px Georgia')})); p.position.set(0,1.9,oz); p.rotation.y=rot; g.add(p); };
+  mk(front,0,0.035); mk(back,Math.PI,-0.035); addCircle(x,z,0.6); }
+// south sign: read "welcome" when arriving from the south, "leaving" when walking out of town
+makeSign(-6.5,82,WELCOME,LEAVING);
+// north sign: read "leaving" from town, "welcome" when the road brings you back around
+makeSign(-6.5,-76,LEAVING,WELCOME);
+const wayGems=[];
+{ const g=new THREE.Group(); g.position.set(LOC.waystone.x,0,LOC.waystone.z); scene.add(g);
+  const ws=new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.7,1.2,7),M.stone); ws.position.y=0.6; g.add(ws); addCircle(LOC.waystone.x,LOC.waystone.z,0.75);
+  for(let i=0;i<4;i++){ const a=i/4*Math.PI*2; const gm=new THREE.Mesh(new THREE.SphereGeometry(0.09,8,6),new THREE.MeshBasicMaterial({color:0x222222}));
+    gm.position.set(Math.cos(a)*0.32,1.21,Math.sin(a)*0.32); g.add(gm); wayGems.push(gm); }
+  addInteract({x:LOC.waystone.x,y:1.1,z:LOC.waystone.z,r:2.6,
+    label:()=> S.exitOpen?'The waystone hums':(S.relics.length?`Set ${S.relics.length===1?'the relic':'the relics'} into the stone`:'Examine the waystone'),
+    act:()=>{
+      if(S.exitOpen){ showMsg(isDaylight()?'The road north is open. Walk it before the light goes.':'The road will only let you go in daylight.'); return; }
+      if(!S.relics.length){ openNote('The waystone','A waist-high stone with four hollows worn into its top, like something was meant to sit in each one. The sign behind it says NOW LEAVING. Someone has scratched underneath: <i>not without all four.</i>','waystone'); return; }
+      for(const r of S.relics){ wayGems[S.placed].material.color.setHex(0x9fe0cc); S.placed++; }
+      S.relics=[]; sfx.ward();
+      if(S.placed>=4){ S.exitOpen=true; sfx.bell(); showMsg('The fourth relic clicks into place. The stone starts to hum, and far up the road the fog thins. Leave in daylight.',8); }
+      else showMsg(`${S.placed} of 4 hollows filled. The stone is warm.`);
+    }});
+}
+// wrecked car south of town
+{ const g=new THREE.Group(); g.position.set(-6,0,96); g.rotation.y=0.5; scene.add(g);
+  const carMat=new THREE.MeshLambertMaterial({color:0x5a2f2a});
+  box(1.9,0.8,4.2,carMat,0,0.65,0,g); box(1.7,0.6,2.2,carMat,0,1.35,-0.2,g);
+  for(const [wx,wz] of [[-.95,1.3],[.95,1.3],[-.95,-1.3],[.95,-1.3]]){ const wh=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.35,0.25,10),M.dark); wh.rotation.z=Math.PI/2; wh.position.set(wx,0.35,wz); g.add(wh); }
+  addCircle(-6,96,2.1);
+  addInteract({x:-6,y:1,z:96,r:3,label:()=>'Your car',act:()=>showMsg('The front end is folded around a tree that wasn\'t there a second before you hit it. It won\'t start. It isn\'t going to start.')});
+}
+
+// ---------- forest locations ----------
+// The bus
+const tokens=[];
+{ const {x,z}=LOC.bus; const g=new THREE.Group(); g.position.set(x,0,z); scene.add(g);
+  const busMat=new THREE.MeshLambertMaterial({color:0x8a6a2a});
+  box(9.5,2.6,2.7,busMat,0,1.55,0,g); box(9.6,0.5,2.75,M.dark,0,0.3,0,g);
+  const winM=new THREE.MeshLambertMaterial({color:0x14181b});
+  for(let i=0;i<6;i++) for(const s of [-1,1]) box(1.1,0.7,0.02,winM,-3.6+i*1.4,2.1,s*1.36,g);
+  box(0.9,1.8,0.02,M.dark,3.6,1.2,1.37,g);
+  addBox(x,z,9.6,2.8);
+  addNotePost(x+3.6,z+3,0.2,'Taped to the bus door','Three of my passengers ran into the trees when we came off the road. They\'re still out there. Little carved things now, but they\'re mine.<br><br>Bring all three back and you can have what I kept for the trip home.','bus');
+  for(let i=0;i<3;i++){ let tx,tz; do{ const a=Math.random()*Math.PI*2, r=rnd(14,34); tx=x+Math.cos(a)*r; tz=z+Math.sin(a)*r; } while(tokens.some(t=>Math.hypot(t.x-tx,t.z-tz)<10));
+    const tg=new THREE.Group(); tg.position.set(tx,0,tz); scene.add(tg);
+    const woodGlow=new THREE.MeshLambertMaterial({color:0xa0784c,emissive:0x4a2a10,emissiveIntensity:0.6});
+    const body=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.11,0.32,8),woodGlow); body.position.y=0.16; tg.add(body);
+    const head=new THREE.Mesh(new THREE.SphereGeometry(0.08,8,6),woodGlow); head.position.y=0.38; tg.add(head);
+    const tk={x:tx,z:tz,g:tg,got:false}; tokens.push(tk);
+    addInteract({x:tx,y:0.3,z:tz,r:2.3,enabled:()=>!tk.got,label:()=>'Pick up the carved figure',act:()=>{ tk.got=true; tg.visible=false; S.tokens++; sfx.pick();
+      showMsg(S.tokens<3?`A small carved figure, warm to the touch. ${S.tokens} of 3.`:'The last of them. Take them back to the bus.'); }});
+  }
+  addInteract({x:x+3.6,y:1.2,z:z+1.5,r:2.6,enabled:()=>!S.busDone,label:()=>S.tokens>=3?'Return the passengers':'The bus door',act:()=>{
+    if(S.tokens<3){ showMsg(`The seats are empty. ${3-S.tokens} carved figure${3-S.tokens===1?'':'s'} still out in the trees.`); return; }
+    S.busDone=true; grantRelic('soldier','You set the three figures on the front seats. Something drops from the driver\'s visor: a dented tin soldier.'); }});
+}
+// The stones
+const stoneObjs=[]; const STONE_ORDER=['eye','hand','moon','tooth','door'];
+function glyphTex(type){ return canvasTex(128,128,(g)=>{ g.fillStyle='#5b5c58'; g.fillRect(0,0,128,128); g.strokeStyle='#ece6d6'; g.fillStyle='#ece6d6'; g.lineWidth=7; g.lineCap='round'; g.lineJoin='round'; g.beginPath();
+  if(type==='eye'){ g.ellipse(64,64,44,22,0,0,Math.PI*2); g.stroke(); g.beginPath(); g.arc(64,64,11,0,Math.PI*2); g.fill(); }
+  if(type==='hand'){ g.arc(64,86,18,0,Math.PI*2); g.stroke(); g.beginPath(); for(let i=0;i<5;i++){ const a=-Math.PI*0.95+i*Math.PI*0.22; g.moveTo(64+Math.cos(a)*20,86+Math.sin(a)*20); g.lineTo(64+Math.cos(a)*48,86+Math.sin(a)*48);} g.stroke(); }
+  if(type==='moon'){ g.arc(64,64,38,Math.PI*0.35,Math.PI*1.65); g.quadraticCurveTo(30,64,64+38*Math.cos(Math.PI*0.35),64+38*Math.sin(Math.PI*0.35)); g.stroke(); }
+  if(type==='tooth'){ g.moveTo(38,30); g.lineTo(90,30); g.lineTo(78,104); g.lineTo(64,72); g.lineTo(50,104); g.closePath(); g.stroke(); }
+  if(type==='door'){ g.moveTo(42,108); g.lineTo(42,52); g.arc(64,52,22,Math.PI,0); g.lineTo(86,108); g.closePath(); g.stroke(); g.beginPath(); g.arc(77,82,4,0,Math.PI*2); g.fill(); }
+}); }
+{ const {x,z}=LOC.stones; const shuffled=STONE_ORDER.slice().sort(()=>Math.random()-0.5);
+  shuffled.forEach((type,i)=>{ const a=i/5*Math.PI*2+0.3, sx=x+Math.cos(a)*7, sz=z+Math.sin(a)*7;
+    const mat=new THREE.MeshLambertMaterial({color:0x6d6e69,emissive:0x7fd6ff,emissiveIntensity:0});
+    const st=new THREE.Mesh(new THREE.BoxGeometry(1.3,2.6,0.6),mat); st.position.set(sx,1.3,sz); st.lookAt(x,1.3,z); scene.add(st);
+    const gl=new THREE.Mesh(new THREE.PlaneGeometry(0.9,0.9),new THREE.MeshLambertMaterial({map:glyphTex(type),emissive:0x7fd6ff,emissiveIntensity:0}));
+    gl.position.set(0,0.35,0.31); st.add(gl);
+    addCircle(sx,sz,0.85);
+    const so={type,mat,gl,lit:false,x:sx,z:sz}; stoneObjs.push(so);
+    const ix=sx+(x-sx)*0.12, iz=sz+(z-sz)*0.12;
+    addInteract({x:ix,y:1.5,z:iz,r:2.6,enabled:()=>!S.stonesDone && !so.lit,label:()=>`Touch the ${type} stone`,act:()=>touchStone(so)});
+  });
+  box(1.2,0.5,1.2,M.stone,x,0.25,z); addBox(x,z,1.2,1.2);
+  addNotePost(x+11,z+2,Math.PI/2,'Nailed to a stake','Hal woke them once. He wrote the order on his hand so he wouldn\'t forget:<br><br><i>the eye that watches, the hand that waves goodbye, the moon that hides, the tooth that bites, and last, the door that never opens.</i><br><br>Get it wrong and they all go back to sleep.','stones');
+}
+function touchStone(so){
+  if(so.type===STONE_ORDER[S.stoneSeq]){ so.lit=true; so.mat.emissiveIntensity=0.35; so.gl.material.emissiveIntensity=0.9; S.stoneSeq++; sfx.chime(S.stoneSeq);
+    if(S.stoneSeq>=5){ S.stonesDone=true; grantRelic('glyph','All five stones are lit. The flat stone in the middle cracks open, and inside is a smooth black stone marked with an eye.'); }
+  } else { for(const s of stoneObjs){ s.lit=false; s.mat.emissiveIntensity=0; s.gl.material.emissiveIntensity=0; } S.stoneSeq=0; sfx.thud(); showMsg('The light drains out of every stone at once. Wrong order.'); }
+}
+// Radio tower
+const RADIO_FREQ = Math.round(rnd(89,106)*10)/10;
+let towerLight;
+{ const {x,z}=LOC.radio; const H=34;
+  for(const [dx,dz] of [[-2,-2],[2,-2],[-2,2],[2,2]]){ const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.12,H,5),M.metal); leg.position.set(x+dx*0.6,H/2,z+dz*0.6); leg.rotation.z=-dx*0.02; leg.rotation.x=dz*0.02; scene.add(leg); addCircle(x+dx*0.7,z+dz*0.7,0.25); }
+  for(let y=3;y<H;y+=4){ const w=1.2*(1-y/H*0.3)*2; box(w,0.06,0.06,M.metal,x,y,z-1.1); box(w,0.06,0.06,M.metal,x,y,z+1.1); box(0.06,0.06,w,M.metal,x-1.1,y,z); box(0.06,0.06,w,M.metal,x+1.1,y,z); }
+  towerLight=new THREE.Mesh(new THREE.SphereGeometry(0.3,8,6),new THREE.MeshBasicMaterial({color:0xff2a1a})); towerLight.position.set(x,H+0.3,z); scene.add(towerLight);
+  const s=radioShack; box(1.6,0.85,0.8,M.wood,s.x+1.4,0.42,s.z); addBox(s.x+1.4,s.z,1.6,0.8);
+  box(0.9,0.45,0.45,M.dark,s.x+1.4,1.08,s.z); const dial=new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.14),new THREE.MeshBasicMaterial({color:0xffa53a})); dial.position.set(s.x+1.4-0.23,1.12,s.z); dial.rotation.y=-Math.PI/2; scene.add(dial);
+  addInteract({x:s.x+1.15,y:1.1,z:s.z,r:2.4,enabled:()=>!S.radioDone,label:()=>'Use the receiver',act:openTuner});
+  addWallNote(s.x+0.3,1.6,s.z-2.04,0,'Written on the wall in pencil',`Static on every number but one. She's still broadcasting on <b>${RADIO_FREQ.toFixed(1)}</b>. She keeps saying the same thing. Listen to the end.`,'radio');
+}
+// The well
+let crankMesh;
+{ const {x,z}=LOC.well;
+  const ring=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.3,0.9,14,1,true),new THREE.MeshLambertMaterial({color:0x6b6c68,side:THREE.DoubleSide})); ring.position.set(x,0.45,z); scene.add(ring);
+  const water=new THREE.Mesh(new THREE.CircleGeometry(1.15,14),new THREE.MeshBasicMaterial({color:0x050608})); water.rotation.x=-Math.PI/2; water.position.set(x,0.3,z); scene.add(water);
+  box(0.12,2.2,0.12,M.wood,x-1.1,1.1,z); box(0.12,2.2,0.12,M.wood,x+1.1,1.1,z); box(2.5,0.12,0.12,M.wood,x,2.1,z);
+  const rf=new THREE.Mesh(new THREE.ConeGeometry(1.9,0.9,4),M.roof); rf.rotation.y=Math.PI/4; rf.position.set(x,2.6,z); scene.add(rf);
+  crankMesh=box(0.06,0.5,0.06,M.iron,x+1.3,2.1,z); crankMesh.geometry.translate(0,-0.22,0);
+  addCircle(x,z,1.35);
+  addInteract({x:x+1.2,y:1.4,z,r:2.6,hold:true,enabled:()=>!S.wellDone,label:()=> isNight()?'Hold E to turn the crank':'Turn the crank',
+    act:()=>{ if(!isNight()) showMsg('The rope runs down into black water and won\'t budge. The note said after dark.'); }});
+  addNotePost(x-3.5,z-2.5,-Math.PI/2,'Carved into the post','THE WELL GIVES ONLY AFTER DARK.<br><br>Beneath it, in smaller letters someone added later: <i>they hear the crank. Bring a stone for the shed.</i>','well');
+}
+
+// ---------- forest ----------
+const clearings=[LOC.bus,LOC.stones,LOC.radio,LOC.well].map(l=>({x:l.x,z:l.z,r:20}));
+function treeOK(x,z){
+  if(Math.abs(x)<9) return false;
+  if(Math.abs(x)<44 && Math.abs(z)<90) return false;
+  for(const c of clearings) if(Math.hypot(x-c.x,z-c.z)<c.r) return false;
+  for(const t of tokens) if(Math.hypot(x-t.x,z-t.z)<2) return false;
+  if(Math.hypot(x+6,z-96)<5) return false;
+  return true;
+}
+const treePos=[];
+for(let i=0;i<5200 && treePos.length<1900;i++){ const x=(R()*2-1)*WORLD, z=(R()*2-1)*WORLD; if(!treeOK(x,z)) continue; treePos.push({x,z,s:0.75+R()*0.8,c:R()}); }
+// copy edge trees across the seam so the wrap is not visible
+const MARGIN=70, allTrees=treePos.slice();
+for(const t of treePos){ const xs=[0], zs=[0];
+  if(t.x>WORLD-MARGIN) xs.push(-2*WORLD); if(t.x<-WORLD+MARGIN) xs.push(2*WORLD);
+  if(t.z>WORLD-MARGIN) zs.push(-2*WORLD); if(t.z<-WORLD+MARGIN) zs.push(2*WORLD);
+  for(const ox of xs) for(const oz of zs){ if(ox===0&&oz===0) continue; allTrees.push({x:t.x+ox,z:t.z+oz,s:t.s,c:t.c}); } }
+for(const t of treePos) addCircle(t.x,t.z,0.3*t.s);
+{ const trunkG=new THREE.CylinderGeometry(0.16,0.28,4,6); trunkG.translate(0,2,0);
+  const c1=new THREE.ConeGeometry(1.9,4.6,7); c1.translate(0,4.6,0);
+  const c2=new THREE.ConeGeometry(1.35,3.4,7); c2.translate(0,6.9,0);
+  const n=allTrees.length;
+  const trunks=new THREE.InstancedMesh(trunkG,new THREE.MeshLambertMaterial({color:0x2e241c}),n);
+  const f1=new THREE.InstancedMesh(c1,new THREE.MeshLambertMaterial({color:0xffffff}),n);
+  const f2=new THREE.InstancedMesh(c2,new THREE.MeshLambertMaterial({color:0xffffff}),n);
+  const m=new THREE.Matrix4(), q=new THREE.Quaternion(), col=new THREE.Color();
+  allTrees.forEach((t,i)=>{ q.setFromAxisAngle(new THREE.Vector3(0,1,0),t.c*6.28); m.compose(new THREE.Vector3(t.x,0,t.z),q,new THREE.Vector3(t.s,t.s*(0.9+t.c*0.3),t.s));
+    trunks.setMatrixAt(i,m); f1.setMatrixAt(i,m); f2.setMatrixAt(i,m);
+    col.setRGB(0.11+t.c*0.05,0.17+t.c*0.06,0.12+t.c*0.03); f1.setColorAt(i,col); col.multiplyScalar(1.1); f2.setColorAt(i,col); });
+  scene.add(trunks,f1,f2);
+}
+
+// ---------- creatures ----------
+const creatures=[];
+const LURK_LINES=[
+  "Hello? Could you let me in? It's freezing out here.",
+  "I saw your light on. I only want to talk.",
+  "Open the door, neighbor. We're all friends here.",
+  "Why are you hiding from me?",
+  "I can hear you breathing in there.",
+  "I brought you something. Come and see.",
+  "It's me. Don't you recognize me?",
+  "You can't stay in there forever.",
+  "Just open it a little. Just a crack."
+];
+const CHASE_LINES=["There you are.","Don't run. Don't run.","Come here, come here, come here.","Why are you running?"];
+const CLOTHES=[0x3b3f4a,0x5a4636,0x6b2e2e,0x2f4a3a,0x4a4a52,0x7a6a55,0x2a3550,0x6e6a62];
+function makeCreature(x,z){
+  const g=new THREE.Group(); g.position.set(x,0,z);
+  const cloth=new THREE.MeshLambertMaterial({color:pick(CLOTHES)});
+  const pants=new THREE.MeshLambertMaterial({color:pick([0x22232a,0x3a3328,0x2b2b2b])});
+  const skin=new THREE.MeshLambertMaterial({color:0xdcc6b2,emissive:0x2e2620,emissiveIntensity:1});
+  const limb=(mat,sx,sy,sz,px,py)=>{ const piv=new THREE.Group(); piv.position.set(px,py,0); const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),mat); m.position.y=-sy/2; piv.add(m); g.add(piv); return piv; };
+  const legL=limb(pants,0.18,0.92,0.2,-0.12,0.92), legR=limb(pants,0.18,0.92,0.2,0.12,0.92);
+  box(0.52,0.72,0.28,cloth,0,1.27,0,g);
+  const armL=limb(cloth,0.14,0.72,0.16,-0.34,1.6), armR=limb(cloth,0.14,0.72,0.16,0.34,1.6);
+  const hand=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.14,0.12),skin); hand.position.y=-0.78; armL.add(hand); const h2=hand.clone(); armR.add(h2);
+  const head=new THREE.Group(); head.position.y=1.8; g.add(head);
+  const skull=new THREE.Mesh(new THREE.SphereGeometry(0.17,12,10),skin); skull.scale.y=1.15; head.add(skull);
+  const hair=new THREE.Mesh(new THREE.SphereGeometry(0.175,12,8,0,Math.PI*2,0,Math.PI*0.45),new THREE.MeshLambertMaterial({color:pick([0x2a1f18,0x5b4a35,0x9a9188,0x1a1a1a])})); hair.position.y=0.03; hair.scale.y=1.15; head.add(hair);
+  const eyeM=new THREE.MeshBasicMaterial({color:0x050505});
+  for(const s of [-1,1]){ const e=new THREE.Mesh(new THREE.SphereGeometry(0.022,6,4),eyeM); e.position.set(s*0.06,0.03,0.155); head.add(e); }
+  // the grin: a wide, too-wide mouth
+  const mouth=new THREE.Mesh(new THREE.BoxGeometry(0.17,0.016,0.02),eyeM); mouth.position.set(0,-0.075,0.15); head.add(mouth);
+  for(const s of [-1,1]){ const c=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.014,0.02),eyeM); c.position.set(s*0.1,-0.06,0.14); c.rotation.z=s*0.5; head.add(c); }
+  scene.add(g);
+  const c={g,pos:g.position,legL,legR,armL,armR,head,state:'wander',target:null,tT:0,phase:Math.random()*6,seed:Math.random()*10,
+    via:null,viaT:0,stuckT:0,lastX:x,lastZ:z,sideT:0,sideDir:1,lineT:rnd(4,10),knockT:rnd(3,8),alerted:false,leaveT:0,lurkPt:null};
+  creatures.push(c); return c;
+}
+function clearCreatures(){ for(const c of creatures) scene.remove(c.g); creatures.length=0; }
+function spawnNight(){
+  const n=Math.min(4+2*(S.day-1),14);
+  for(let i=0;i<n;i++){ let x,z,tries=0; do{ const a=Math.random()*Math.PI*2, r=rnd(70,150); x=clamp(S.pos.x+Math.cos(a)*r,-WORLD+5,WORLD-5); z=clamp(S.pos.z+Math.sin(a)*r,-WORLD+5,WORLD-5); tries++; } while((buildingAt(x,z)||Math.hypot(x-S.pos.x,z-S.pos.z)<60) && tries<20);
+    makeCreature(x,z); }
+}
+function expelFrom(b){ for(const c of creatures){ if(buildingAt(c.pos.x,c.pos.z)===b){ c.pos.x=b.doorOut.x+b.n[0]*1.5; c.pos.z=b.doorOut.z+b.n[1]*1.5; c.via=null; } } }
+function approachPoint(c,b){
+  const rx=c.pos.x-b.x, rz=c.pos.z-b.z, along=rx*b.n[0]+rz*b.n[1];
+  if(along>b.half+0.4) return b.doorOut;
+  const tx=-b.n[1], tz=b.n[0], side=(rx*tx+rz*tz)>=0?1:-1;
+  if(along<-b.half+0.4) return {x:b.x-b.n[0]*(b.half+2.5)+tx*side*(b.otherHalf+2.2), z:b.z-b.n[1]*(b.half+2.5)+tz*side*(b.otherHalf+2.2)};
+  return {x:b.x+b.n[0]*(b.half+2.5)+tx*side*(b.otherHalf+2.2), z:b.z+b.n[1]*(b.half+2.5)+tz*side*(b.otherHalf+2.2)};
+}
+function navTarget(c,goal){
+  if(c.via){ if(dist(c.pos,c.via)<0.6||c.viaT>3) c.via=null; else return c.via; }
+  const cb=buildingAt(c.pos.x,c.pos.z), gb=buildingAt(goal.x,goal.z);
+  if(cb && cb!==gb){ if(dist(c.pos,cb.doorIn)<1.0){ c.via=cb.doorOut; c.viaT=0; return c.via; } return cb.doorIn; }
+  if(gb && gb!==cb){ if(gb.talisman) return approachPoint(c,gb);
+    if(dist(c.pos,gb.doorOut)<1.2){ c.via=gb.doorIn; c.viaT=0; return c.via; } return approachPoint(c,gb); }
+  return goal;
+}
+function updateCreatures(dt,pb,safe){
+  const protectedDoors=buildings.filter(b=>b.talisman).map(b=>b.doorBox);
+  let nearest=1e9, nearestChase=1e9;
+  for(let i=creatures.length-1;i>=0;i--){
+    const c=creatures[i]; const d=dist(c.pos,S.pos);
+    if(c.state==='leave'){
+      c.leaveT+=dt; const ax=c.pos.x-S.pos.x, az=c.pos.z-S.pos.z, l=Math.hypot(ax,az)||1;
+      moveCreature(c,{x:c.pos.x+ax/l*10,z:c.pos.z+az/l*10},1.8,dt,protectedDoors);
+      if(c.leaveT>25 || (d>45 && c.leaveT>3)){ scene.remove(c.g); creatures.splice(i,1); }
+      continue;
+    }
+    // expelled if a room becomes protected around it
+    const cb=buildingAt(c.pos.x,c.pos.z); if(cb && cb.talisman) expelFrom(cb);
+    const detect=(S.flashlight?42:26)+(S.sprinting?12:0);
+    if(safe){ if(c.state==='chase' || (c.state!=='lurk' && d<40)){ c.state='lurk'; c.alerted=false;
+        const tx=-pb.n[1], tz=pb.n[0], o=rnd(-2.6,2.6), out=rnd(0.6,3.2); c.lurkPt={x:pb.doorOut.x+tx*o+pb.n[0]*out, z:pb.doorOut.z+tz*o+pb.n[1]*out}; } }
+    else if(c.state==='lurk'){ c.state='chase'; }
+    else if(c.alerted || d<detect){ if(c.state!=='chase'){ c.state='chase'; if(S.time-S.chaseSting>14){ S.chaseSting=S.time; sfx.sting(); if(d<30) showSub(pick(CHASE_LINES)); } } }
+    else if(c.state==='chase' && d>75){ c.state='wander'; }
+
+    if(c.state==='chase'){
+      const t=navTarget(c,S.pos); moveCreature(c,t,4.3+Math.min(S.day,6)*0.08,dt,protectedDoors);
+      nearestChase=Math.min(nearestChase,d);
+      if(d<1.05 && !safe){ die(); return; }
+    } else if(c.state==='lurk'){
+      const dl=dist(c.pos,c.lurkPt);
+      if(dl>0.5) moveCreature(c,navTarget(c,c.lurkPt),1.6,dt,protectedDoors);
+      else { c.g.rotation.y=Math.atan2(S.pos.x-c.pos.x,S.pos.z-c.pos.z); idlePose(c,dt); }
+      c.lineT-=dt; if(c.lineT<=0){ c.lineT=rnd(9,16); if(d<14){ showSub(pick(LURK_LINES)); sfx.whisperBurst(); } }
+      c.knockT-=dt; if(c.knockT<=0){ c.knockT=rnd(7,14); if(dist(c.pos,pb.doorOut)<4.5) sfx.knock(clamp(1-d/18,0.15,1)); }
+    } else { // wander, drifting toward the player
+      c.tT-=dt; if(!c.target || c.tT<=0 || dist(c.pos,c.target)<1.5){ const a=Math.random()*Math.PI*2, r=rnd(5,40); c.target={x:clamp(S.pos.x+Math.cos(a)*r,-WORLD+4,WORLD-4), z:clamp(S.pos.z+Math.sin(a)*r,-WORLD+4,WORLD-4)}; c.tT=rnd(10,20); }
+      moveCreature(c,navTarget(c,c.target),2.0,dt,protectedDoors);
+    }
+    nearest=Math.min(nearest,d);
+  }
+  return {nearest,nearestChase};
+}
+function moveCreature(c,t,speed,dt,extra){
+  c.viaT+=dt;
+  let dx=t.x-c.pos.x, dz=t.z-c.pos.z; const l=Math.hypot(dx,dz);
+  if(l<0.05){ idlePose(c,dt); return; }
+  dx/=l; dz/=l;
+  if(c.sideT>0){ c.sideT-=dt; const sx=-dz*c.sideDir, sz=dx*c.sideDir; dx=dx*0.3+sx; dz=dz*0.3+sz; const m=Math.hypot(dx,dz); dx/=m; dz/=m; }
+  const step=Math.min(speed*dt,l);
+  c.pos.x+=dx*step; c.pos.z+=dz*step;
+  const p={x:c.pos.x,z:c.pos.z}; collide(p,0.32,extra); c.pos.x=clamp(p.x,-WORLD,WORLD); c.pos.z=clamp(p.z,-WORLD,WORLD);
+  c.stuckT+=dt;
+  if(c.stuckT>0.7){ const moved=Math.hypot(c.pos.x-c.lastX,c.pos.z-c.lastZ); if(moved<speed*0.7*0.25 && c.sideT<=0){ c.sideT=rnd(0.8,1.6); c.sideDir=Math.random()<0.5?-1:1; } c.stuckT=0; c.lastX=c.pos.x; c.lastZ=c.pos.z; }
+  c.g.rotation.y=Math.atan2(dx,dz);
+  c.phase+=dt*speed*2.3; const sw=Math.sin(c.phase)*Math.min(0.75,speed*0.16);
+  c.legL.rotation.x=sw; c.legR.rotation.x=-sw;
+  if(speed>3){ c.armL.rotation.x=-0.25; c.armR.rotation.x=-0.25; } else { c.armL.rotation.x=-sw*0.4; c.armR.rotation.x=sw*0.4; }
+  c.head.rotation.z=Math.sin(S.time*0.6+c.seed)*0.12; c.head.rotation.x=0;
+}
+function idlePose(c,dt){ c.legL.rotation.x*=0.9; c.legR.rotation.x*=0.9; c.armL.rotation.x*=0.9; c.armR.rotation.x*=0.9;
+  c.head.rotation.z=lerp(c.head.rotation.z,0.45*Math.sin(c.seed),dt*0.8); c.head.rotation.x=lerp(c.head.rotation.x,-0.1,dt); }
+
+// ---------- audio ----------
+const A={ctx:null};
+function initAudio(){
+  if(A.ctx) return;
+  try{
+    const ctx=new (window.AudioContext||window.webkitAudioContext)(); A.ctx=ctx;
+    A.master=ctx.createGain(); A.master.gain.value=0.9; A.master.connect(ctx.destination);
+    const len=ctx.sampleRate*2, buf=ctx.createBuffer(1,len,ctx.sampleRate), d=buf.getChannelData(0); for(let i=0;i<len;i++) d[i]=Math.random()*2-1; A.noise=buf;
+    const loop=(filterType,freq,Q)=>{ const s=ctx.createBufferSource(); s.buffer=buf; s.loop=true; const f=ctx.createBiquadFilter(); f.type=filterType; f.frequency.value=freq; f.Q.value=Q; const g=ctx.createGain(); g.gain.value=0; s.connect(f).connect(g).connect(A.master); s.start(); return {f,g}; };
+    const wind=loop('lowpass',380,0.7); A.windG=wind.g; wind.g.gain.value=0.1;
+    const lfo=ctx.createOscillator(); lfo.frequency.value=0.06; const lg=ctx.createGain(); lg.gain.value=200; lfo.connect(lg).connect(wind.f.frequency); lfo.start();
+    const wh=loop('bandpass',2300,9); A.whG=wh.g;
+    const l2=ctx.createOscillator(); l2.frequency.value=2.7; const l2g=ctx.createGain(); l2g.gain.value=900; l2.connect(l2g).connect(wh.f.frequency); l2.start();
+    const st=loop('bandpass',2600,0.5); A.stG=st.g;
+    A.vo=ctx.createOscillator(); A.vo.type='triangle'; A.vo.frequency.value=392; A.voG=ctx.createGain(); A.voG.gain.value=0;
+    const vib=ctx.createOscillator(); vib.frequency.value=5.5; const vg=ctx.createGain(); vg.gain.value=6; vib.connect(vg).connect(A.vo.frequency); vib.start();
+    A.vo.connect(A.voG).connect(A.master); A.vo.start();
+  }catch(e){ A.ctx=null; }
+}
+function tone(f,dur,vol,type='sine',when=0,attack=0.01){ if(!A.ctx) return; const t=A.ctx.currentTime+when; const o=A.ctx.createOscillator(); o.type=type; o.frequency.value=f; const g=A.ctx.createGain();
+  g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(vol,t+attack); g.gain.exponentialRampToValueAtTime(0.0001,t+attack+dur); o.connect(g).connect(A.master); o.start(t); o.stop(t+attack+dur+0.05); }
+function burst(freq,dur,vol,when=0,type='lowpass'){ if(!A.ctx) return; const t=A.ctx.currentTime+when; const s=A.ctx.createBufferSource(); s.buffer=A.noise; const f=A.ctx.createBiquadFilter(); f.type=type; f.frequency.value=freq; const g=A.ctx.createGain();
+  g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); s.connect(f).connect(g).connect(A.master); s.start(t,Math.random()); s.stop(t+dur+0.05); }
+const sfx={
+  step:()=>burst(650,0.07,0.06),
+  pick:()=>{ tone(880,0.15,0.05); tone(1320,0.2,0.03,'sine',0.06); },
+  ward:()=>{ tone(196,1.4,0.08); tone(294,1.6,0.05,'sine',0.05); tone(392,1.8,0.03,'sine',0.1); },
+  click:()=>tone(2200,0.02,0.03,'square'),
+  knock:v=>{ for(let i=0;i<3;i++) burst(380,0.09,0.55*v,i*0.27); },
+  heart:v=>{ tone(52,0.22,0.5*v,'sine',0,0.02); tone(46,0.25,0.35*v,'sine',0.17,0.02); },
+  bell:()=>{ tone(174,5,0.18,'sine',0,0.005); tone(349*1.19,4,0.06,'sine',0,0.005); tone(523,3,0.04,'sine',0,0.005); },
+  sting:()=>{ tone(110,2.2,0.05,'sawtooth',0,0.05); tone(116.5,2.2,0.05,'sawtooth',0,0.05); tone(164.8,2,0.03,'sawtooth',0.05,0.05); },
+  thud:()=>{ tone(70,0.8,0.25); burst(200,0.4,0.2); },
+  chime:n=>tone([523,587,659,784,880][n-1]||880,1.8,0.06,'sine',0,0.01),
+  crank:()=>{ tone(1500+Math.random()*300,0.03,0.04,'square'); burst(1200,0.05,0.05); },
+  whisperBurst:()=>{ if(!A.ctx) return; const t=A.ctx.currentTime; A.whG.gain.cancelScheduledValues(t); A.whG.gain.setValueAtTime(A.whG.gain.value,t); A.whG.gain.linearRampToValueAtTime(0.35,t+0.2); A.whG.gain.linearRampToValueAtTime(0.0,t+2.2); },
+  musicBox:()=>{ [784,659,587,523,587,659,523,392,440,523].forEach((f,i)=>tone(f,0.9,0.05,'sine',i*0.32,0.005)); },
+  death:()=>{ tone(60,3,0.4,'sawtooth',0,0.01); burst(900,1.6,0.5); }
+};
+
+// ---------- UI helpers ----------
+let msgT=0, subT=0;
+function showMsg(t,dur=5){ $('msg').innerHTML=t; $('msg').style.opacity=1; msgT=dur; }
+function showSub(t){ $('sub').textContent='“'+t+'”'; $('sub').style.opacity=1; subT=4.5; }
+function openNote(title,text,key){ S.ui='note'; $('noteBody').innerHTML=`<h3>${title}</h3><div>${text}</div>`; $('note').hidden=false; if(key) S.notesRead[key]={title,text}; sfx.pick(); }
+function closeUI(){ S.ui=null; $('note').hidden=true; $('journal').hidden=true; $('mapWrap').hidden=true; $('tuner').hidden=true; if(A.ctx){ A.stG.gain.value=0; A.voG.gain.value=0; } }
+function grantRelic(id,text){ S.relics.push(id); sfx.musicBox(); showMsg(text+` <br><span style="color:var(--warn)">${RELIC_NAMES[id]} added. Take it to the waystone.</span>`,8); }
+function openTuner(){ S.ui='tuner'; $('tuner').hidden=false; S.tunedT=0; renderTuner(); }
+const TRANSCRIPT="...is anyone there... if you can hear me... the well gives only after dark... bring a stone, hang it in the shed beside it... they will hear the crank, all of them... I'm leaving this tape in the deck for whoever comes next...";
+function renderTuner(){
+  $('freq').textContent=S.freq.toFixed(1); $('needle').style.left=((S.freq-87.5)/(108-87.5)*100)+'%';
+  const off=Math.abs(S.freq-RADIO_FREQ), clar=Math.pow(clamp(1-off/1.5,0,1),2); $('clar').firstElementChild.style.width=(clar*100)+'%';
+  if(A.ctx){ A.stG.gain.value=(1-clar)*0.22+0.02; A.voG.gain.value=clar*0.05; }
+  const shown=off<0.05 ? Math.floor(TRANSCRIPT.length*clamp(S.tunedT/9,0,1)) : 0;
+  $('transcript').textContent = off<0.05 ? TRANSCRIPT.slice(0,shown) : (clar>0.3?'...a voice under the static...':'(static)');
+}
+function renderJournal(){
+  const item=(done,txt)=>`<li class="${done?'done':''}"><span>${done?'✕':'○'}</span><span>${txt}</span></li>`;
+  const rHave=id=>S.relics.includes(id);
+  let h=`<h3>Journal</h3><ul>`;
+  h+=item(S.hasMap,"Find Hal's map in the diner");
+  h+=item(S.busDone,`The bus, northwest: return the three carved passengers (${S.tokens}/3 found)`);
+  h+=item(S.stonesDone,"The stones, northeast: wake them in Hal's order");
+  h+=item(S.radioDone,'The radio tower, southwest: find her broadcast and listen to the end');
+  h+=item(S.wellDone,'The well, southeast: draw it up after dark');
+  h+=item(S.exitOpen,`Set the relics in the waystone by the north sign (${S.placed}/4 placed${S.relics.length?`, ${S.relics.length} carried`:''})`);
+  h+=item(S.won,'Leave by the road, in daylight');
+  h+=`</ul><hr><b>The rules</b><br>Be inside before dark. Only trust a room with a stone by the door. Don't open up for anybody.`;
+  const notes=Object.values(S.notesRead); if(notes.length){ h+='<hr><b>Notes you have read</b>'; for(const n of notes) h+=`<p style="margin:8px 0 0"><i>${n.title}.</i> ${n.text}</p>`; }
+  $('journalBody').innerHTML=h;
+}
+function drawMap(){
+  const c=$('mapC'), g=c.getContext('2d'), W=c.width, s=(W-80)/(WORLD*2), o=W/2, P=(x,z)=>[o+x*s,o+z*s];
+  g.fillStyle='#cdbf98'; g.fillRect(0,0,W,W);
+  for(let i=0;i<1400;i++){ g.fillStyle=`rgba(90,70,40,${Math.random()*0.08})`; g.fillRect(Math.random()*W,Math.random()*W,2,2); }
+  g.strokeStyle='rgba(60,45,25,.5)'; g.lineWidth=1; g.strokeRect(40,40,W-80,W-80);
+  g.fillStyle='rgba(40,60,35,.18)'; for(const t of treePos){ if(Math.random()<0.5) continue; const [x,y]=P(t.x,t.z); g.fillRect(x,y,2,2); }
+  g.strokeStyle='#4a3a26'; g.lineWidth=4; g.beginPath(); g.moveTo(o,40); g.lineTo(o,W-40); g.stroke();
+  g.fillStyle='#4a3a26'; for(const b of buildings){ const [x,y]=P(b.x-b.w/2,b.z-b.d/2); g.fillRect(x,y,Math.max(3,b.w*s),Math.max(3,b.d*s)); }
+  g.font='15px "Special Elite", monospace'; g.textAlign='center';
+  g.fillText("HARROW'S END",o+78,o+4);
+  const mark=(l,done,label)=>{ const [x,y]=P(l.x,l.z); g.strokeStyle=done?'#2f5a4c':'#7a2a1e'; g.lineWidth=2.5; g.beginPath();
+    if(done){ g.arc(x,y,9,0,Math.PI*2); } else { g.moveTo(x-8,y-8); g.lineTo(x+8,y+8); g.moveTo(x+8,y-8); g.lineTo(x-8,y+8); } g.stroke();
+    g.fillStyle='#2b2419'; g.fillText(label,x,y+26); };
+  mark(LOC.bus,S.busDone,'the bus'); mark(LOC.stones,S.stonesDone,'the stones'); mark(LOC.radio,S.radioDone,'radio tower'); mark(LOC.well,S.wellDone,'the well');
+  const [wx,wy]=P(LOC.waystone.x,LOC.waystone.z); g.fillStyle=S.exitOpen?'#2f5a4c':'#2b2419'; g.beginPath(); g.arc(wx,wy,4,0,Math.PI*2); g.fill(); g.fillText('waystone',wx+44,wy+4);
+  g.font='12px "Special Elite", monospace'; g.fillStyle='rgba(43,36,25,.7)';
+  g.fillText('the road goes nowhere',o,30); g.fillText('it only comes back',o,W-18);
+  g.textAlign='left'; g.fillText('N ↑',W-70,30);
+  // you
+  const [px,py]=P(S.pos.x,S.pos.z); g.save(); g.translate(px,py); g.rotate(-S.yaw+Math.PI); g.fillStyle='#a3231b'; g.beginPath(); g.moveTo(0,9); g.lineTo(-5,-6); g.lineTo(5,-6); g.closePath(); g.fill(); g.restore();
+  g.font='13px "Special Elite", monospace'; g.fillStyle='#2b2419'; g.textAlign='left'; g.fillText("— Hal's map. M to fold it away.",44,W-48);
+}
+
+// ---------- input ----------
+const keys={};
+addEventListener('keydown',e=>{
+  if(!S.started) return;
+  if(['Tab','Space','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.code)) e.preventDefault();
+  keys[e.code]=true;
+  if(e.repeat && S.ui!=='tuner') return;
+  if(S.dead||S.won) return;
+  if(S.ui==='tuner'){
+    if(e.code==='KeyA'||e.code==='ArrowLeft'){ S.freq=clamp(Math.round((S.freq-0.1)*10)/10,87.5,108); S.tunedT=0; sfx.click(); renderTuner(); }
+    if(e.code==='KeyD'||e.code==='ArrowRight'){ S.freq=clamp(Math.round((S.freq+0.1)*10)/10,87.5,108); S.tunedT=0; sfx.click(); renderTuner(); }
+    if(e.code==='KeyE'||e.code==='Escape') closeUI();
+    return;
+  }
+  if(e.code==='KeyE'){ if(S.ui==='note'){ closeUI(); return; } const it=currentInteract; if(it && !it.hold) it.act(); else if(it && it.hold && !isNight()) it.act(); }
+  if(e.code==='Escape' && S.ui) closeUI();
+  if(e.code==='KeyF'){ S.flashlight=!S.flashlight; sfx.click(); }
+  if(e.code==='KeyM'){ if(!S.hasMap){ showMsg("You don't have a map. There might be one in the diner."); return; } if(S.ui==='map') closeUI(); else { closeUI(); S.ui='map'; drawMap(); $('mapWrap').hidden=false; } }
+  if(e.code==='KeyJ'||e.code==='Tab'){ if(S.ui==='journal') closeUI(); else { closeUI(); S.ui='journal'; renderJournal(); $('journal').hidden=false; } }
+});
+addEventListener('keyup',e=>{ keys[e.code]=false; });
+addEventListener('blur',()=>{ for(const k in keys) keys[k]=false; });
+addEventListener('wheel',e=>{ if(S.ui==='tuner'){ S.freq=clamp(Math.round((S.freq+(e.deltaY<0?0.1:-0.1))*10)/10,87.5,108); S.tunedT=0; sfx.click(); renderTuner(); } },{passive:true});
+let dragging=false;
+const cvs=renderer.domElement;
+cvs.addEventListener('mousedown',()=>{ if(!S.started||S.dead||S.won) return; if(!S.locked && !S.noLock) requestLock(); dragging=true; });
+addEventListener('mouseup',()=>dragging=false);
+addEventListener('mousemove',e=>{ if(!S.started||S.paused) return; if(S.locked || (S.noLock && dragging)){ S.yaw-=e.movementX*0.0022; S.pitch=clamp(S.pitch-e.movementY*0.0022,-1.45,1.45); } });
+function requestLock(){ try{ const p=cvs.requestPointerLock(); if(p && p.catch) p.catch(()=>{ S.noLock=true; }); }catch(e){ S.noLock=true; } }
+document.addEventListener('pointerlockchange',()=>{ S.locked=document.pointerLockElement===cvs;
+  if(S.locked){ S.paused=false; $('pause').hidden=true; } else if(S.started && !S.dead && !S.won){ S.paused=true; $('pause').hidden=false; } });
+document.addEventListener('pointerlockerror',()=>{ S.noLock=true; });
+$('startBtn').addEventListener('click',()=>{ initAudio(); if(A.ctx&&A.ctx.state==='suspended') A.ctx.resume(); $('title').hidden=true; $('hud').hidden=false; S.started=true; requestLock();
+  showMsg('Your car is wrecked on the road south of here. This was the only place with a light on. There\'s a note on the counter.',8); });
+$('resumeBtn').addEventListener('click',()=>{ $('pause').hidden=true; S.paused=false; requestLock(); });
+$('againBtn').addEventListener('click',()=>location.reload());
+
+// ---------- time & lighting ----------
+const isNight=()=>S.hour>=NIGHT_START||S.hour<NIGHT_END;
+const isDaylight=()=>S.hour>=6.5&&S.hour<19.5;
+function dayFactor(h){ if(h<5.5||h>20.5) return 0; if(h<7) return smooth((h-5.5)/1.5); if(h>18.5) return smooth((20.5-h)/2); return 1; }
+const cDay=new THREE.Color(0x8b9196), cDusk=new THREE.Color(0x6e5450), cNight=new THREE.Color(0x05070b), cOpen=new THREE.Color(0xc9cdcc), tmpC=new THREE.Color();
+function updateLighting(){
+  const f=dayFactor(S.hour), duskW=(S.hour>17.5&&S.hour<21)||(S.hour>5&&S.hour<7) ? Math.sin(Math.PI*clamp(f,0,1)) : 0;
+  tmpC.copy(cNight).lerp(cDay,f).lerp(cDusk,duskW*0.55);
+  let dens=lerp(0.034,0.012,f);
+  // when the road is open, the fog thins to the north
+  if(S.exitOpen && isDaylight() && Math.abs(S.pos.x)<14 && S.pos.z<-90){ const k=clamp((-90-S.pos.z)/120,0,1); dens=lerp(dens,0.004,k); tmpC.lerp(cOpen,k*0.7); }
+  scene.fog.color.copy(tmpC); scene.background.copy(tmpC); scene.fog.density=dens;
+  hemi.intensity=0.1+0.55*f; hemi.color.setHex(f>0.3?0xc4cacf:0x5a6a8a);
+  sun.intensity=0.04+0.62*f; sun.color.copy(tmpC.set(0xfff1dd).lerp(cDusk.clone().multiplyScalar(2),duskW*0.6));
+  const nightF=1-f;
+  for(const b of buildings) b.winMat.emissiveIntensity=b.talisman?nightF*0.9:0;
+  M.bulb.color.setHex(nightF>0.5?0xffd9a0:0x555555);
+  flash.intensity=S.flashlight?2.0:0;
+  towerLight.visible=Math.sin(S.time*3)>0;
+}
+
+// ---------- death / respawn / win ----------
+function die(){
+  if(S.dead) return; S.dead=true; S.deathT=0; S.deaths++; sfx.death(); closeUI();
+  $('deathTxt').textContent=`You wake on the diner floor. It's morning again. You don't remember walking back. Day ${S.day+1}.`;
+  setTimeout(()=>{ if(S.dead) $('death').hidden=false; },700);
+}
+function respawn(){
+  S.dead=false; $('death').hidden=true; clearCreatures(); S.day++; S.hour=7; S.pos={x:-11,z:0}; S.yaw=-Math.PI/2; S.pitch=0; S.stamina=1; S.crank=0;
+  if(!diner.talisman && !S.carry){ /* the town is cruel, but not that cruel */ }
+  showMsg(`Day ${S.day}. Your chest aches where their hands were.`);
+}
+function win(){
+  S.won=true; closeUI(); sfx.bell();
+  if(document.pointerLockElement) document.exitPointerLock();
+  $('winTxt').textContent=`The road keeps going. The trees thin out, and then there's a guardrail, and a mile marker, and the hum of a highway somewhere ahead. You got out of Harrow's End in ${S.day} day${S.day===1?'':'s'}${S.deaths?`, and they caught you ${S.deaths} time${S.deaths===1?'':'s'}`:' without them ever catching you'}.`;
+  $('win').hidden=false; $('hud').hidden=true;
+}
+
+// ---------- main update ----------
+let currentInteract=null, heartT=0, hourPrev=S.hour;
+const crossed=(a,b,x)=> a<=b ? (a<x&&b>=x) : (a<x||b>=x);
+function update(dt){
+  S.time+=dt;
+  if(S.dead){ S.deathT+=dt; camera.position.y=lerp(camera.position.y,0.35,dt*2); camera.rotation.z=lerp(camera.rotation.z,0.9,dt*1.5);
+    if(S.deathT>4.5) respawn(); return; }
+
+  const pb=buildingAt(S.pos.x,S.pos.z), safe=!!(pb&&pb.talisman);
+  // time
+  const waiting=keys.KeyT && safe && (isNight()||S.hour>=19);
+  hourPrev=S.hour; S.hour+=dt/HOUR_SEC*(waiting?14:1); if(S.hour>=24) S.hour-=24;
+  if(crossed(hourPrev,S.hour,18.5)) showMsg('The light is going. Get to a room with a talisman by the door.');
+  if(crossed(hourPrev,S.hour,19.5)) sfx.bell();
+  if(crossed(hourPrev,S.hour,20)){ spawnNight(); showMsg(safe?'Night. Stay where you are.':'Night. They\'re out of the trees.'); if(A.ctx) A.windG.gain.value=0.16; }
+  if(crossed(hourPrev,S.hour,6)){ S.day++; for(const c of creatures){ c.state='leave'; c.leaveT=0; } showMsg(`Day ${S.day}. They walk back into the trees as if nothing happened.`); if(A.ctx) A.windG.gain.value=0.1; }
+
+  // movement
+  const frozen=S.ui==='tuner'||S.ui==='note';
+  let ix=0,iz=0; if(!frozen){ if(keys.KeyW||keys.ArrowUp) iz+=1; if(keys.KeyS||keys.ArrowDown) iz-=1; if(keys.KeyD||keys.ArrowRight) ix+=1; if(keys.KeyA||keys.ArrowLeft) ix-=1; }
+  const moving=ix||iz;
+  if(S.stamina<=0.02) S.tired=true; if(S.tired&&S.stamina>0.35) S.tired=false;
+  S.sprinting=!!(moving && (keys.ShiftLeft||keys.ShiftRight) && !S.tired && iz>=0);
+  S.stamina=clamp(S.stamina+(S.sprinting?-dt/6:dt/9),0,1);
+  const speed=S.sprinting?6.4:(S.tired?2.6:3.6);
+  if(moving){
+    const fx=-Math.sin(S.yaw), fz=-Math.cos(S.yaw), rx=Math.cos(S.yaw), rz=-Math.sin(S.yaw);
+    let vx=fx*iz+rx*ix, vz=fz*iz+rz*ix; const l=Math.hypot(vx,vz); vx/=l; vz/=l;
+    S.pos.x+=vx*speed*dt; S.pos.z+=vz*speed*dt; collide(S.pos,0.35);
+    S.bob+=dt*speed*1.75; if(Math.floor(S.bob/Math.PI)!==S.lastStep){ S.lastStep=Math.floor(S.bob/Math.PI); sfx.step(); }
+  }
+  // the loop
+  if(Math.abs(S.pos.x)>WORLD||Math.abs(S.pos.z)>WORLD){
+    const onRoad=Math.abs(S.pos.x)<14;
+    if(S.exitOpen && isDaylight() && onRoad && S.pos.z<-WORLD){ win(); return; }
+    if(S.pos.x>WORLD) S.pos.x-=2*WORLD; else if(S.pos.x<-WORLD) S.pos.x+=2*WORLD;
+    if(S.pos.z>WORLD) S.pos.z-=2*WORLD; else if(S.pos.z<-WORLD) S.pos.z+=2*WORLD;
+    if(onRoad && !S.visited.loopMsg){ S.visited.loopMsg=true; showMsg('The road bends, and bends again. Up ahead, through the trees, there\'s a sign. You know what it says before you can read it.',7); }
+    else if(S.exitOpen && onRoad && !isDaylight()) showMsg('The road will only let you go in daylight.');
+  }
+  camera.position.set(S.pos.x,1.65+(moving?Math.sin(S.bob*2)*0.035:0),S.pos.z);
+  camera.rotation.set(S.pitch,S.yaw,0); camera.updateMatrixWorld();
+
+  // visiting locations
+  for(const [k,l] of Object.entries(LOC)) if(!S.visited[k] && dist(l,S.pos)<26){ S.visited[k]=true; if(k!=='waystone') showMsg(`${l.name}. Hal marked this place on his map.`); }
+
+  // interior light
+  if(pb){ roomLight.position.set(pb.x,pb.h-0.5,pb.z); roomLight.intensity=pb.talisman?0.85:(Math.random()<0.06?0.05:0.3); } else roomLight.intensity=0;
+
+  // well crank
+  const it=findInteract(); currentInteract=it;
+  let holding=false;
+  if(it && it.hold && keys.KeyE && isNight() && !S.wellDone && !frozen){
+    holding=true; const before=S.crank; S.crank=clamp(S.crank+dt/9,0,1); crankMesh.rotation.x+=dt*5;
+    if(Math.floor(before*30)!==Math.floor(S.crank*30)) sfx.crank();
+    if(before===0 || Math.random()<dt){ for(const c of creatures) if(c.state!=='leave'){ c.alerted=true; if(dist(c.pos,S.pos)>90){ const a=Math.random()*6.28; c.pos.x=clamp(S.pos.x+Math.cos(a)*85,-WORLD,WORLD); c.pos.z=clamp(S.pos.z+Math.sin(a)*85,-WORLD,WORLD); } } }
+    if(before===0) showMsg('The crank shrieks on its axle. Somewhere in the trees, something stops and turns its head.');
+    if(S.crank>=1){ S.wellDone=true; grantRelic('musicbox','The bucket comes up out of the black water. Inside it, dry as bone, is a small music box. It is playing.'); }
+  }
+  $('hold').hidden=!holding && !(S.crank>0&&S.crank<1&&it&&it.hold); $('hold').firstElementChild.style.width=(S.crank*100)+'%';
+
+  // radio tuning
+  if(S.ui==='tuner'){
+    if(Math.abs(S.freq-RADIO_FREQ)<0.05){ S.tunedT+=dt; if(A.ctx && Math.floor(S.time*2)!==Math.floor((S.time-dt)*2)) A.vo.frequency.value=[392,370,330,311,294,330,262,247][Math.floor(S.time*2)%8];
+      if(S.tunedT>9.5 && !S.radioDone){ S.radioDone=true; closeUI(); grantRelic('tape','The voice cuts off. The deck clicks, and a cassette slides out, the label written in the same hand as the notes.'); } }
+    renderTuner();
+  }
+
+  // creatures
+  let nearest=1e9, nearestChase=1e9;
+  if(creatures.length){ const r=updateCreatures(dt,pb,safe); if(S.dead) return; nearest=r.nearest; nearestChase=r.nearestChase; }
+  if(A.ctx){ const wv=nearest<28?(1-nearest/28)*0.18:0; if(A.whG.gain.value<0.3) A.whG.gain.value=lerp(A.whG.gain.value,wv,dt*2); }
+  if(nearestChase<38){ heartT-=dt; const bpm=lerp(150,72,nearestChase/38); if(heartT<=0){ heartT=60/bpm; sfx.heart(clamp(1.2-nearestChase/38,0.3,1)); } }
+  $('danger').style.opacity = nearestChase<38 ? clamp(1-nearestChase/38,0,1)*0.9 : (nearest<12 && !safe ? 0.25 : 0);
+
+  updateLighting();
+  updateHUD(pb,safe,it,waiting);
+  if(msgT>0){ msgT-=dt; if(msgT<=0) $('msg').style.opacity=0; }
+  if(subT>0){ subT-=dt; if(subT<=0) $('sub').style.opacity=0; }
+  for(const t of tokens) if(!t.got) t.g.rotation.y+=dt*0.6;
+  if(S.ui==='map' && Math.random()<0.1) drawMap();
+}
+const _v=new THREE.Vector3(), _f=new THREE.Vector3();
+function findInteract(){
+  if(S.ui==='tuner'||S.ui==='note') return null;
+  camera.getWorldDirection(_f); let best=null,bs=-9;
+  for(const it of inter){ if(it.enabled && !it.enabled()) continue;
+    _v.set(it.x-camera.position.x,it.y-camera.position.y,it.z-camera.position.z); const d=_v.length(); if(d>(it.r||2.3)) continue;
+    _v.divideScalar(d||1); const dot=_v.dot(_f); if(dot<0.82 && d>1.1) continue; const sc=dot-d*0.05; if(sc>bs){bs=sc;best=it;} }
+  return best;
+}
+const DIRS=[['N',0],['NE',45],['E',90],['SE',135],['S',180],['SW',225],['W',270],['NW',315]];
+const compassEl=$('compass'); const compassSpans=DIRS.map(([t])=>{ const s=document.createElement('span'); s.textContent=t; if(t.length===1) s.className='card'; compassEl.appendChild(s); return s; });
+function updateHUD(pb,safe,it,waiting){
+  const heading=((-S.yaw*180/Math.PI)%360+360)%360;
+  DIRS.forEach(([t,a],i)=>{ let d=a-heading; d=((d+540)%360)-180; const s=compassSpans[i]; if(Math.abs(d)>80){ s.style.display='none'; return; } s.style.display=''; s.style.left=(50+d/80*50)+'%'; });
+  $('dayLbl').textContent='Day '+S.day;
+  const hh=Math.floor(S.hour), mm=Math.floor((S.hour-hh)*60/5)*5; $('timeLbl').textContent=String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0')+(waiting?'  ▸▸':'');
+  const ph=$('phaseLbl');
+  if(isNight()){ ph.textContent='Night · they are out'; ph.className='bad'; }
+  else if(S.hour>=18){ ph.textContent='Dusk · get inside'; ph.className='warn'; }
+  else if(S.hour<8){ ph.textContent='Morning'; ph.className=''; }
+  else { ph.textContent=S.hour<12?'Day':'Afternoon'; ph.className=''; }
+  const st=$('status');
+  if(pb){ if(safe){ st.textContent='Protected'+(isNight()||S.hour>=19?' · hold T to wait':''); st.className='safe'; } else { st.textContent='No talisman here'; st.className='unsafe'; } }
+  else { st.textContent=''; st.className='out'; }
+  let inv=`<div class="row"><span class="k">Talisman</span><span>${S.carry?'carrying one':'—'}</span></div>`;
+  inv+=`<div class="row"><span class="k">Relics</span><span>${S.placed+S.relics.length}/4${S.relics.length?` (${S.relics.map(r=>RELIC_NAMES[r]).join(', ')})`:''}</span></div>`;
+  if(S.tokens&&!S.busDone) inv+=`<div class="row"><span class="k">Figures</span><span>${S.tokens}/3</span></div>`;
+  inv+=`<div class="row"><span class="k">Light</span><span>${S.flashlight?'on':'off'} <span style="color:var(--dim)">[F]</span></span></div>`;
+  if($('inv').innerHTML!==inv) $('inv').innerHTML=inv;
+  $('stam').style.opacity=S.stamina<0.98?1:0; $('stam').firstElementChild.style.width=(S.stamina*100)+'%'; $('stam').firstElementChild.style.background=S.tired?'#e2574c':'';
+  const lab=it?it.label():''; const ph2=it?(it.hold&&isNight()?'<b>E</b>hold · ':'<b>E</b>')+lab:''; if($('prompt').innerHTML!==ph2) $('prompt').innerHTML=ph2;
+}
+
+// ---------- loop ----------
+let last=performance.now();
+function frame(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  if(S.started && !S.paused && !S.won) update(dt);
+  else if(!S.started){ // slow drift for the title screen
+    S.time+=dt; camera.position.set(-2+Math.sin(S.time*0.05)*3,1.7,30); camera.rotation.set(0.02,Math.PI*0.02+Math.sin(S.time*0.07)*0.2,0); S.hour=19.3; updateLighting(); }
+  renderer.render(scene,camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+if(location.hash==='#debug') window.__he={S,creatures,buildings,keys};
+// title screen hour resets to morning on start
+$('startBtn').addEventListener('click',()=>{ S.hour=7; S.time=0; });
+})();
+</script>
+</body>
+</html>
