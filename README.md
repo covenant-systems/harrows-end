@@ -44,6 +44,19 @@ Everyone keeps a daily routine: out to work in the morning, home before dark. Th
 
 The buildings have working doors, porches, shutters, chimneys and furnished interiors: the sheriff's office has a cell, the clinic has an exam table, the Lantern has a bar and a fireplace, the farm has fields, a fence, a barn and a scarecrow. The barn, Hal Cobb's house, the chapel and the empty house have no talisman.
 
+## The things at night
+
+Most of them look like ordinary people with a smile that's too wide. Some you'll learn to recognize. Each one has its own look, its own way of hunting and its own voice at the door. The townsfolk will warn you about them, and the first time you see one, it goes into your journal.
+
+| Creature | First night | What it does |
+| --- | --- | --- |
+| The Milkman | 1 | White uniform, cap, a crate of bottles. Walks a route door to door every night, rattling his bottles and offering a delivery. You hear the clink before you see him. |
+| The Bride | 1 | Grey-hemmed wedding dress, veil, bouquet. Hums the wedding march. Slower than you, but once she has seen you she never gives up until morning. |
+| The Boxer | 2 | Red gloves and trunks, guard up. Charges in bursts faster than you can run, then stops and bounces on his toes. Run while he's waiting for the bell. |
+| The Twins | 2 | Two women in matching yellow sweaters. Move side by side and say everything twice. |
+| The Gentleman | 3 | Top hat, tailcoat, cane. Slow and polite, but when he spots you he rings a bell and every creature nearby comes for you. |
+| The Nurse | 3 | White uniform and cap. Claims Dr. Vance sent her. Faster than the rest. |
+
 ## How it works
 
 - **Day and night.** A full day takes about 6 minutes, and night lasts about 2½ of them. People head home in the late afternoon; a bell rings at dusk. More creatures come each night.

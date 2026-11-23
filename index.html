@@ -294,7 +294,7 @@ const S = {
   carry:false, hasMap:false, flashlight:false,
   tokens:0, busDone:false, stoneSeq:0, stonesDone:false, radioDone:false, wellDone:false,
   relics:[], placed:0, exitOpen:false, crank:0, tunedT:0, freq:88.0,
-  know:{}, heard:[], notesRead:{}, visited:{}, chaseSting:0
+  know:{}, heard:[], notesRead:{}, visited:{}, seen:{}, chaseSting:0
 };
 const RELIC_NAMES={soldier:'Tin soldier',glyph:'Glyph stone',tape:'Cassette tape',musicbox:'Music box'};
 
@@ -730,15 +730,29 @@ function makeHumanoid(o){
   const g=new THREE.Group();
   const shirt=lam(o.shirt), pants=lam(o.pants), skin=lam(o.skin,{emissive:o.grin?0x2e2620:0x16110d});
   const limb=(mat,sx,sy,sz,px,py)=>{ const piv=new THREE.Group(); piv.position.set(px,py,0); const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),mat); m.position.y=-sy/2; piv.add(m); g.add(piv); return piv; };
-  const legL=limb(pants,0.18,0.92,0.2,-0.12,0.92), legR=limb(pants,0.18,0.92,0.2,0.12,0.92);
-  box(0.52,0.72,0.28,shirt,0,1.27,0,g);
+  const legMat=o.shorts?skin:pants, torsoMat=o.shirtless?skin:shirt;
+  const legL=limb(legMat,0.18,0.92,0.2,-0.12,0.92), legR=limb(legMat,0.18,0.92,0.2,0.12,0.92);
+  box(0.52,0.72,0.28,torsoMat,0,1.27,0,g);
+  if(o.shorts){ box(0.56,0.34,0.32,lam(o.shorts),0,0.86,0,g); box(0.58,0.08,0.34,lam(0xe8e4da),0,1.02,0,g); }
+  if(o.longDress){ const dm=lam(o.longDress); box(0.74,1.0,0.6,dm,0,0.5,0,g); box(0.62,0.32,0.46,dm,0,1.04,0,g); }
   if(o.dress) box(0.6,0.55,0.36,lam(o.dress),0,0.8,0,g);
+  if(o.belt) box(0.54,0.07,0.3,lam(o.belt),0,0.94,0,g);
+  if(o.tie) box(0.07,0.42,0.02,lam(o.tie),0,1.38,0.15,g);
   if(o.coat) box(0.58,1.05,0.33,lam(o.coat),0,1.12,0,g);
   if(o.apron) box(0.42,0.8,0.03,lam(o.apron),0,1.05,0.16,g);
   if(o.overalls){ const om=lam(o.overalls); box(0.54,0.36,0.3,om,0,1.05,0,g); box(0.36,0.3,0.03,om,0,1.38,0.15,g); }
   if(o.badge) box(0.08,0.09,0.02,lam(0xd8b048,{emissive:0x3a2a08}),0.13,1.46,0.15,g);
-  const armL=limb(o.coat?lam(o.coat):shirt,0.14,0.72,0.16,-0.34,1.6), armR=limb(o.coat?lam(o.coat):shirt,0.14,0.72,0.16,0.34,1.6);
-  const hand=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.14,0.12),skin); hand.position.y=-0.78; armL.add(hand); armR.add(hand.clone());
+  if(o.bowtie){ const bm=lam(o.bowtie); box(0.16,0.07,0.03,bm,0,1.6,0.16,g); }
+  const armMat=o.coat?lam(o.coat):torsoMat;
+  const armL=limb(armMat,0.14,0.72,0.16,-0.34,1.6), armR=limb(armMat,0.14,0.72,0.16,0.34,1.6);
+  if(o.gloves){ const gm=lam(o.gloves); for(const arm of [armL,armR]){ const gl=new THREE.Mesh(new THREE.SphereGeometry(0.11,10,8),gm); gl.position.y=-0.8; gl.scale.set(1,1.1,1.2); arm.add(gl); } }
+  else { const hand=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.14,0.12),skin); hand.position.y=-0.78; armL.add(hand); armR.add(hand.clone()); }
+  if(o.carry==='crate'){ box(0.48,0.26,0.32,lam(0x8a7a5a),0,1.02,0.46,g); const bm=lam(0xf4f2ea,{emissive:0x2a2a26});
+    for(let i=0;i<4;i++){ const b=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.045,0.26,8),bm); b.position.set(-0.15+i*0.1,1.24,0.46); g.add(b); } }
+  if(o.carry==='bouquet'){ const bg=new THREE.Group(); bg.position.set(0,1.18,0.42); g.add(bg); const st=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.3,0.06),lam(0x3a5a2a)); st.position.y=-0.15; bg.add(st);
+    for(let i=0;i<7;i++){ const f=new THREE.Mesh(new THREE.SphereGeometry(0.06,8,6),lam(i%3?0x6a1a24:0xe8e4da)); f.position.set(Math.cos(i)*0.08,0.04+(i%2)*0.04,Math.sin(i)*0.08); bg.add(f); } }
+  if(o.carry==='cane'){ const cn=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.95,6),lam(0x111111)); cn.position.set(0,-1.2,0.06); armR.add(cn);
+    const knob=new THREE.Mesh(new THREE.SphereGeometry(0.035,8,6),lam(0xc0a050)); knob.position.set(0,-0.75,0.06); armR.add(knob); }
   const head=new THREE.Group(); head.position.y=1.8; g.add(head);
   const skull=new THREE.Mesh(new THREE.SphereGeometry(0.17,12,10),skin); skull.scale.y=1.15; head.add(skull);
   const hairM=lam(o.hair);
@@ -755,9 +769,20 @@ function makeHumanoid(o){
   if(o.hat){ const hc=o.hat==='straw'?0xd6be78:0x8a6a40, hm=lam(hc);
     const brim=new THREE.Mesh(new THREE.CylinderGeometry(o.hat==='straw'?0.32:0.27,o.hat==='straw'?0.32:0.27,0.02,14),hm); brim.position.y=0.17; head.add(brim);
     const crown=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.17,0.14,10),hm); crown.position.y=0.25; head.add(crown); }
+  if(o.cap){ const cm=lam(o.cap); const cr=new THREE.Mesh(new THREE.CylinderGeometry(0.19,0.18,0.1,12),cm); cr.position.y=0.19; head.add(cr);
+    const vis=new THREE.Mesh(new THREE.BoxGeometry(0.24,0.02,0.13),lam(0x1a1a1a)); vis.position.set(0,0.15,0.18); head.add(vis); }
+  if(o.topHat){ const hm=lam(0x0e0e10); const br=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.28,0.02,16),hm); br.position.y=0.17; head.add(br);
+    const cr=new THREE.Mesh(new THREE.CylinderGeometry(0.155,0.15,0.36,14),hm); cr.position.y=0.36; head.add(cr);
+    const band=new THREE.Mesh(new THREE.CylinderGeometry(0.158,0.158,0.05,14),lam(0x4a1016)); band.position.y=0.21; head.add(band); }
+  if(o.veil){ const vm=new THREE.MeshLambertMaterial({color:0xf4f2ea,transparent:true,opacity:0.55,side:THREE.DoubleSide,depthWrite:false});
+    const v=new THREE.Mesh(new THREE.PlaneGeometry(0.6,1.25),vm); v.position.set(0,-0.42,-0.19); v.rotation.x=0.08; head.add(v);
+    const v2=new THREE.Mesh(new THREE.PlaneGeometry(0.42,0.32),vm); v2.position.set(0,0.0,0.19); head.add(v2);
+    const ti=new THREE.Mesh(new THREE.TorusGeometry(0.15,0.015,6,16,Math.PI),lam(0xd8d0b0,{emissive:0x2a2a20})); ti.position.y=0.15; ti.rotation.x=-0.4; head.add(ti); }
+  if(o.nurseCap){ const nc=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.08,0.14),lam(0xf4f2ea)); nc.position.set(0,0.2,0.03); head.add(nc);
+    const rc=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.02,0.01),lam(0xa01818)); rc.position.set(0,0.2,0.105); head.add(rc); const rc2=rc.clone(); rc2.rotation.z=Math.PI/2; head.add(rc2); }
   g.scale.setScalar(o.scale||1);
   scene.add(g);
-  return {g,pos:g.position,legL,legR,armL,armR,head,phase:Math.random()*6,seed:Math.random()*10,via:null,viaT:0,stuckT:0,lastX:g.position.x,lastZ:g.position.z,sideT:0,sideDir:1,blocked:false};
+  return {g,pos:g.position,legL,legR,armL,armR,head,armHold:o.armHold??null,phase:Math.random()*6,seed:Math.random()*10,via:null,viaT:0,stuckT:0,lastX:g.position.x,lastZ:g.position.z,sideT:0,sideDir:1,blocked:false};
 }
 function placeActor(a,x,z){ a.pos.x=x; a.pos.z=z; a.lastX=x; a.lastZ=z; }
 
@@ -779,18 +804,62 @@ const LURK_LINES=[
 ];
 const CHASE_LINES=["There you are.","Don't run. Don't run.","Come here, come here, come here.","Why are you running?"];
 const CLOTHES=[0x3b3f4a,0x5a4636,0x6b2e2e,0x2f4a3a,0x4a4a52,0x7a6a55,0x2a3550,0x6e6a62];
-function makeCreature(x,z){
-  const a=makeHumanoid({shirt:pick(CLOTHES),pants:pick([0x22232a,0x3a3328,0x2b2b2b]),skin:0xdcc6b2,hair:pick([0x2a1f18,0x5b4a35,0x9a9188,0x1a1a1a]),grin:true,dress:Math.random()<0.3?pick(CLOTHES):null,longHair:Math.random()<0.35});
+// The ones you learn to recognize. Each has a look, a way of moving and a voice of its own.
+const KINDS={
+  milkman:{title:'The Milkman', desc:'White uniform, white cap, a crate of bottles he never puts down. He makes his rounds every night and rattles his bottles at every door.',
+    look:{shirt:0xe6e4da,pants:0xe6e4da,cap:0xe6e4da,tie:0x24345a,belt:0x3a2a1e,carry:'crate',armHold:-0.95,hair:0x5b4a35},
+    lurk:["Morning! Got your delivery right here.","You didn't leave a note out. Did you forget about me?","Fresh milk. Still warm. Open up and I'll carry it in.","Same time tomorrow? Same time tomorrow."],
+    chase:["You forgot to sign for it!","Delivery!"], rounds:true},
+  bride:{title:'The Bride', desc:'A wedding dress gone grey at the hem, a veil, a bouquet held to her chest. She hums the wedding march. She never runs, and once she has seen you, she never stops coming.',
+    look:{shirt:0xeeebe2,pants:0xeeebe2,longDress:0xeeebe2,veil:true,carry:'bouquet',armHold:-0.75,longHair:true,hair:0x3a2a1a},
+    lurk:["He never came. Will you come out instead?","Something old, something new. Come out and be my something new.","I've been walking down this aisle for so long.","Don't you want to see my dress up close?"],
+    chase:["Wait for me.","Don't you leave me too."], speed:3.3, relentless:true, hum:true},
+  boxer:{title:'The Boxer', desc:'Bare-chested, red gloves up, red trunks. He comes at you in bursts faster than you can run, then stops dead and bounces on his toes, like he is waiting for a bell.',
+    look:{shirt:0x9a1e1e,pants:0x9a1e1e,shirtless:true,shorts:0x9a1e1e,gloves:0xb02020,hair:0x1a1a1a,armHold:-1.25},
+    lurk:["Come on out. One round.","Keep your guard up in there.","Ding ding.","Nobody ever goes the distance with me."],
+    chase:["Ding ding!","Come on, come on!"], burst:true},
+  gentleman:{title:'The Gentleman', desc:'Top hat, tailcoat, cane, bow tie. He never hurries. When he sees you he tips his hat, and every one of them comes running.',
+    look:{shirt:0xe8e4da,pants:0x16161a,coat:0x16161a,topHat:true,bowtie:0x16161a,carry:'cane',hair:0x8a8a8a},
+    lurk:["Good evening. Might I come in for a moment?","After you. I insist.","Such a lovely house. Lovelier with the door open.","We are all so very glad you came."],
+    chase:["Ladies. Gentlemen. We have a guest."], speed:2.6, caller:true},
+  twin:{title:'The Twins', desc:'Two women in matching yellow sweaters. They walk side by side, step for step, and say everything twice.',
+    look:{shirt:0xd8b030,pants:0x3a3a40,dress:0x3a3a40,longHair:true,hair:0xc0a070},
+    lurk:["We can wait.","Come and play with us.","We saw you at the window.","Two of us. One of you."],
+    chase:["Run, run.","Found you."], twin:true},
+  nurse:{title:'The Nurse', desc:'A white uniform and a little white cap. She says Dr. Vance sent her. Dr. Vance has never had a nurse.',
+    look:{shirt:0xeae8e0,pants:0xeae8e0,dress:0xeae8e0,nurseCap:true,longHair:true,hair:0x2a1f18},
+    lurk:["Dr. Vance sent me. Doctor's orders: open the door.","This won't hurt a bit.","You look pale. Let me take a look at you.","Time for your medicine."],
+    chase:["Hold still!","You need to lie down."], speed:4.6},
+};
+// who comes out on which night (cumulative)
+const ROSTER=[['milkman','bride'],['boxer','twin','twin'],['gentleman','nurse']];
+function makeCreature(x,z,kind){
+  const K=kind?KINDS[kind]:null;
+  const look=K?Object.assign({skin:0xdcc6b2,grin:true},K.look)
+    :{shirt:pick(CLOTHES),pants:pick([0x22232a,0x3a3328,0x2b2b2b]),skin:0xdcc6b2,hair:pick([0x2a1f18,0x5b4a35,0x9a9188,0x1a1a1a]),grin:true,dress:Math.random()<0.3?pick(CLOTHES):null,longHair:Math.random()<0.35};
+  const a=makeHumanoid(look);
   placeActor(a,x,z);
-  Object.assign(a,{kind:'creature',state:'wander',target:null,tT:0,lineT:rnd(4,10),knockT:rnd(3,8),alerted:false,leaveT:0,lurkPt:null});
+  Object.assign(a,{kind:'creature',kindId:kind||null,K,state:'wander',target:null,tT:0,lineT:rnd(4,10),knockT:rnd(3,8),alerted:false,leaveT:0,lurkPt:null,
+    burstT:Math.random()*3,callT:0,humT:rnd(2,6),clinkT:rnd(1,3),leader:null,roundI:Math.floor(Math.random()*20)});
   creatures.push(a); return a;
 }
 function clearCreatures(){ for(const c of creatures) scene.remove(c.g); creatures.length=0; }
 function spawnNight(){
   const n=Math.min(4+2*(S.day-1),14);
-  for(let i=0;i<n;i++){ let x,z,tries=0; do{ const a=Math.random()*Math.PI*2, r=rnd(70,150); x=clamp(S.pos.x+Math.cos(a)*r,-WORLD+5,WORLD-5); z=clamp(S.pos.z+Math.sin(a)*r,-WORLD+5,WORLD-5); tries++; } while((buildingAt(x,z)||Math.hypot(x-S.pos.x,z-S.pos.z)<60) && tries<20);
-    makeCreature(x,z); }
+  const named=ROSTER.slice(0,Math.min(S.day,ROSTER.length)).flat();
+  let lastTwin=null;
+  for(let i=0;i<n;i++){
+    const kind=named[i]||null;
+    let x,z,tries=0;
+    if(kind==='twin' && lastTwin){ x=lastTwin.pos.x+1.2; z=lastTwin.pos.z; }
+    else do{ const a=Math.random()*Math.PI*2, r=rnd(70,150); x=clamp(S.pos.x+Math.cos(a)*r,-WORLD+5,WORLD-5); z=clamp(S.pos.z+Math.sin(a)*r,-WORLD+5,WORLD-5); tries++; } while((buildingAt(x,z)||Math.hypot(x-S.pos.x,z-S.pos.z)<60) && tries<20);
+    const c=makeCreature(x,z,kind);
+    if(kind==='twin'){ if(lastTwin) c.leader=lastTwin; else lastTwin=c; }
+  }
 }
+// a point beside the leader twin, on its right
+const besideLeader=c=>{ const L=c.leader, r=L.g.rotation.y; return {x:L.pos.x+Math.cos(r)*1.15, z:L.pos.z-Math.sin(r)*1.15}; };
+function creatureLine(c,lines){ let t=pick(lines); if(c.K&&c.K.twin) t=t+'” “'+t; return t; }
 function expelFrom(b){ for(const c of creatures){ if(buildingAt(c.pos.x,c.pos.z)===b){ c.pos.x=b.doorOut.x+b.n[0]*1.5; c.pos.z=b.doorOut.z+b.n[1]*1.5; c.via=null; } } }
 function approachPoint(a,b){
   const rx=a.pos.x-b.x, rz=a.pos.z-b.z, along=rx*b.n[0]+rz*b.n[1];
@@ -819,26 +888,55 @@ function updateCreatures(dt,pb,safe,extraC){
       continue;
     }
     const cb=buildingAt(c.pos.x,c.pos.z); if(cb && cb.talisman) expelFrom(cb);
+    const K=c.K||{};
+    if(c.leader && (!creatures.includes(c.leader) || c.leader.state==='leave')) c.leader=null;
     const detect=(S.flashlight?42:26)+(S.sprinting?12:0);
-    if(safe){ if(c.state==='chase' || (c.state!=='lurk' && d<40)){ c.state='lurk'; c.alerted=false;
-        const o=rnd(-2.6,2.6), out=rnd(0.6,3.2)+(pb.porch?2.6:0); c.lurkPt={x:pb.doorOut.x+pb.t[0]*o+pb.n[0]*out, z:pb.doorOut.z+pb.t[1]*o+pb.n[1]*out}; } }
+    // first sighting goes in the journal
+    if(c.kindId && !S.seen[c.kindId] && d<20){ S.seen[c.kindId]=true; showMsg(`<span style="color:#e2574c">${K.title}.</span> ${K.desc}`,8); }
+    if(safe){ if(c.state==='chase' || (c.state!=='lurk' && d<40) || K.rounds&&d<60){ if(c.state!=='lurk'){ c.state='lurk'; c.alerted=false;
+        const o=rnd(-2.6,2.6), out=rnd(0.6,3.2)+(pb.porch?2.6:0); c.lurkPt={x:pb.doorOut.x+pb.t[0]*o+pb.n[0]*out, z:pb.doorOut.z+pb.t[1]*o+pb.n[1]*out};
+        if(K.rounds) c.lurkPt={x:pb.doorOut.x+pb.n[0]*(pb.porch?1.2:0.2), z:pb.doorOut.z+pb.n[1]*(pb.porch?1.2:0.2)}; } } }
     else if(c.state==='lurk'){ c.state='chase'; }
-    else if(c.alerted || d<detect){ if(c.state!=='chase'){ c.state='chase'; if(S.time-S.chaseSting>14){ S.chaseSting=S.time; sfx.sting(); if(d<30) showSub(pick(CHASE_LINES)); } } }
-    else if(c.state==='chase' && d>75){ c.state='wander'; }
+    else if(c.alerted || d<detect){ if(c.state!=='chase'){ c.state='chase'; if(S.time-S.chaseSting>14 || K.caller){ S.chaseSting=S.time; sfx.sting(); if(d<30 && !c.leader) showSub(creatureLine(c,K.chase||CHASE_LINES)); } } }
+    else if(c.state==='chase' && d>75 && !K.relentless){ c.state='wander'; }
+    if(c.leader && c.leader.state==='lurk' && c.state!=='lurk' && safe){ c.state='lurk'; }
+    if(c.leader && c.state==='lurk' && c.leader.lurkPt) c.lurkPt={x:c.leader.lurkPt.x+pb.t[0]*1.1, z:c.leader.lurkPt.z+pb.t[1]*1.1};
 
+    // the Gentleman calls the others
+    if(K.caller){ c.callT-=dt; if(!safe && d<detect*1.3 && c.callT<=0){ c.callT=30; sfx.ding();
+        showSub("Ladies. Gentlemen. We have a guest."); for(const o of creatures) if(o!==c && o.state!=='leave' && dist(o.pos,c.pos)<140) o.alerted=true; } }
+    // sounds that announce them
+    if(K.hum && d<32){ c.humT-=dt; if(c.humT<=0){ c.humT=rnd(7,11); sfx.hum(clamp(1-d/32,0.1,1)); } }
+    if(K.rounds && d<26){ c.clinkT-=dt; if(c.clinkT<=0){ c.clinkT=rnd(1.2,2.6); sfx.clink(clamp(1-d/26,0.1,1)); } }
+
+    const baseSpeed=(K.speed||4.3)+Math.min(S.day,6)*0.08;
     if(c.state==='chase'){
-      const t=navTarget(c,S.pos,false); moveActor(c,t,4.3+Math.min(S.day,6)*0.08,dt,extraC);
       nearestChase=Math.min(nearestChase,d);
+      if(K.burst){ c.burstT+=dt; const ph=c.burstT%3.6;
+        if(ph<2.2) moveActor(c,navTarget(c,S.pos,false),7.0,dt,extraC);
+        else { c.g.rotation.y=Math.atan2(S.pos.x-c.pos.x,S.pos.z-c.pos.z); idlePose(c,dt); c.pos.y=Math.abs(Math.sin(S.time*9))*0.08; const s=Math.sin(S.time*9)*0.25; c.legL.rotation.x=s; c.legR.rotation.x=-s; } }
+      else { const goal=(c.leader && d>6)?besideLeader(c):S.pos; moveActor(c,navTarget(c,goal,false),c.leader?baseSpeed+0.5:baseSpeed,dt,extraC); }
       if(d<1.05 && !safe){ die(); return {nearest,nearestChase}; }
     } else if(c.state==='lurk'){
       const dl=dist(c.pos,c.lurkPt);
-      if(dl>0.5) moveActor(c,navTarget(c,c.lurkPt,false),1.6,dt,extraC);
-      else { c.g.rotation.y=Math.atan2(S.pos.x-c.pos.x,S.pos.z-c.pos.z); idlePose(c,dt,true); }
-      c.lineT-=dt; if(c.lineT<=0){ c.lineT=rnd(9,16); if(d<16){ showSub(pick(LURK_LINES)); sfx.whisperBurst(); } }
-      c.knockT-=dt; if(c.knockT<=0){ c.knockT=rnd(7,14); if(dist(c.pos,pb.doorOut)<5 && !pb.door.open) sfx.knock(clamp(1-d/18,0.15,1)); }
+      if(dl>0.5) moveActor(c,navTarget(c,c.lurkPt,false),K.rounds?2.2:1.6,dt,extraC);
+      else { c.g.rotation.y=Math.atan2(S.pos.x-c.pos.x,S.pos.z-c.pos.z); idlePose(c,dt,true); if(K.burst){ c.pos.y=Math.abs(Math.sin(S.time*7))*0.06; } }
+      if(!c.leader){ c.lineT-=dt; if(c.lineT<=0){ c.lineT=rnd(9,16); if(d<16){ showSub(creatureLine(c,K.lurk&&Math.random()<0.8?K.lurk:LURK_LINES)); sfx.whisperBurst(); } } }
+      c.knockT-=dt; if(c.knockT<=0){ c.knockT=K.rounds?rnd(5,8):rnd(7,14); if(dist(c.pos,pb.doorOut)<5.5 && !pb.door.open){ if(K.rounds) sfx.rattle(clamp(1-d/18,0.2,1)); else sfx.knock(clamp(1-d/18,0.15,1)); } }
     } else {
-      c.tT-=dt; if(!c.target || c.tT<=0 || dist(c.pos,c.target)<1.5){ const a=Math.random()*Math.PI*2, r=rnd(5,40); c.target={x:clamp(S.pos.x+Math.cos(a)*r,-WORLD+4,WORLD-4), z:clamp(S.pos.z+Math.sin(a)*r,-WORLD+4,WORLD-4)}; c.tT=rnd(10,20); }
-      moveActor(c,navTarget(c,c.target,false),2.0,dt,extraC);
+      c.tT-=dt;
+      if(c.leader){ moveActor(c,navTarget(c,besideLeader(c),false),2.6,dt,extraC); }
+      else if(K.rounds){ // the Milkman walks his route, door to door
+        const route=buildings.filter(b=>Math.abs(b.x)<100&&Math.abs(b.z)<100);
+        const rb=route[c.roundI%route.length]; const stop={x:rb.doorOut.x+rb.n[0]*(rb.porch?1.2:0.2), z:rb.doorOut.z+rb.n[1]*(rb.porch?1.2:0.2)};
+        if(dist(c.pos,stop)<1.2){ c.g.rotation.y=Math.atan2(-rb.n[0],-rb.n[1]); idlePose(c,dt);
+          if(c.waitStop!==c.roundI){ c.waitStop=c.roundI; c.tT=rnd(3,5); if(!rb.door.open) sfx.rattle(clamp(1-d/22,0.05,1)); if(d<18) showSub(pick(K.lurk)); }
+          else if(c.tT<=0) c.roundI++; }
+        else moveActor(c,navTarget(c,stop,false),2.2,dt,extraC);
+      }
+      else if(K.relentless){ moveActor(c,navTarget(c,S.pos,false),1.7,dt,extraC); }
+      else { if(!c.target || c.tT<=0 || dist(c.pos,c.target)<1.5){ const a=Math.random()*Math.PI*2, r=rnd(5,40); c.target={x:clamp(S.pos.x+Math.cos(a)*r,-WORLD+4,WORLD-4), z:clamp(S.pos.z+Math.sin(a)*r,-WORLD+4,WORLD-4)}; c.tT=rnd(10,20); }
+        moveActor(c,navTarget(c,c.target,false),K.caller?1.4:2.0,dt,extraC); }
     }
     nearest=Math.min(nearest,d);
   }
@@ -864,10 +962,13 @@ function moveActor(a,t,speed,dt,extra){
   a.g.rotation.y=Math.atan2(dx,dz);
   a.phase+=dt*speed*2.3; const sw=Math.sin(a.phase)*Math.min(0.75,speed*0.16);
   a.legL.rotation.x=sw; a.legR.rotation.x=-sw;
-  if(a.kind==='creature' && speed>3){ a.armL.rotation.x=-0.25; a.armR.rotation.x=-0.25; } else { a.armL.rotation.x=-sw*0.6; a.armR.rotation.x=sw*0.6; }
+  if(a.armHold!=null){ a.armL.rotation.x=a.armHold+sw*0.08; a.armR.rotation.x=a.armHold-sw*0.08; }
+  else if(a.kind==='creature' && speed>3){ a.armL.rotation.x=-0.25; a.armR.rotation.x=-0.25; } else { a.armL.rotation.x=-sw*0.6; a.armR.rotation.x=sw*0.6; }
+  a.pos.y=0;
   a.head.rotation.z=a.kind==='creature'?Math.sin(S.time*0.6+a.seed)*0.12:0; a.head.rotation.x=0;
 }
-function idlePose(a,dt,creepy){ a.legL.rotation.x*=0.9; a.legR.rotation.x*=0.9; a.armL.rotation.x*=0.9; a.armR.rotation.x*=0.9;
+function idlePose(a,dt,creepy){ a.legL.rotation.x*=0.9; a.legR.rotation.x*=0.9;
+  if(a.armHold!=null){ a.armL.rotation.x=a.armHold; a.armR.rotation.x=a.armHold; } else { a.armL.rotation.x*=0.9; a.armR.rotation.x*=0.9; }
   if(creepy){ a.head.rotation.z=lerp(a.head.rotation.z,0.45*Math.sin(a.seed),dt*0.8); a.head.rotation.x=lerp(a.head.rotation.x,-0.1,dt); }
   else { a.head.rotation.z=Math.sin(S.time*0.5+a.seed)*0.05; a.head.rotation.x=Math.sin(S.time*0.3+a.seed)*0.06; } }
 
@@ -885,7 +986,7 @@ const PEOPLE = [
       {learn:'hal', lines:["You're going to ask me how to get out. Everybody does on the second day.","Honest answer is I don't know. But there was a man, Hal Cobb. Lived in the house across the road from the Lantern.","Hal was sure there was a way. Spent every daylight hour out in those trees with a notebook.","One night he didn't come in. That was about a month back. Nobody's hung a stone in his place since. Go look, if you want. I couldn't."]},
       {when:()=>S.hasMap, lines:["You found something in Hal's place. I can see it on you.","Whatever it is, don't follow it into the trees past four in the afternoon. I mean that."]},
     ],
-    small:["The road just brings you back. I drove it for six hours once. Six hours, and there was the diner.","They can see a flashlight a long way off. Use it when you have to, not because you can.","I walk this road twice a day. Keeps me from thinking."],
+    small:["One of them dresses like a milkman. Walks the whole street every night and rattles his bottles at every door. Don't take a delivery.","The road just brings you back. I drove it for six hours once. Six hours, and there was the diner.","They can see a flashlight a long way off. Use it when you have to, not because you can.","I walk this road twice a day. Keeps me from thinking."],
     night:["Stay off the porch. Stay away from the windows. Morning comes. It always has so far.","Don't answer it. Whatever it says, don't answer it."] },
   { id:'marisol', name:'Marisol Boone', role:'Runs the diner', look:{shirt:0x7a3b46,pants:0x2a2a30,skin:0xb98a68,hair:0x1e1612,apron:0xd9d2c0,dress:0x5a2e36,longHair:true}, home:'booneHouse', work:'diner', speed:1.4, offset:0.2,
     intro:["You found my note, then. Good. Sit down. There's coffee. It doesn't taste like anything anymore, but it's hot.","I'm Marisol. Dale's my husband. The tall boy throwing rocks at the chapel is Eli. He's ours too."],
@@ -900,14 +1001,14 @@ const PEOPLE = [
     topics:[
       {learn:'radio', lines:["Don't tell my mom, but I go out to the radio tower sometimes. It's southwest, way out in the trees. There's a little shack at the bottom.","The radio in there picks up a lady talking. I can never find her twice. Hal wrote something on the wall about her, I think.","You can see the red light on top from the road at night, if the fog's low."]},
     ],
-    small:["I'm fifteen. I've been fifteen for a while now, I think.","Pip says the night people know his name. I told him to stop listening.","Dad thinks I don't know about the guns in the cabinet. I know."],
+    small:["There's one dressed like a boxer. He stops and starts, like he's waiting for a bell. You can't outrun him when he goes, but you can when he stops.","I'm fifteen. I've been fifteen for a while now, I think.","Pip says the night people know his name. I told him to stop listening.","Dad thinks I don't know about the guns in the cabinet. I know."],
     night:["Do you think they used to be people?","I counted eleven of them last night. Mom says don't count."] },
   { id:'vance', name:'Dr. Imogen Vance', role:'Surgeon', look:{shirt:0x4a5a6a,pants:0x2a2a30,skin:0xe2c4ae,hair:0x9a9188,coat:0xe6e6e0,glasses:true,longHair:true}, home:'clinic', work:'clinic', speed:1.4, offset:0.1,
     intro:["I was a surgeon, before. I suppose I still am. People here still cut themselves and fall off ladders.","Whatever they do to you out there at night, there's nothing I can stitch. So please don't make me try."],
     topics:[
       {learn:'well', lines:["Hal came in once with rope burns across both palms. Deep ones.","He said he'd been at the old well in the southeast, after dark. He said it only gives at night.","I told him nothing is worth that. He laughed at me. I liked Hal."]},
     ],
-    small:["Sleep where the stone hangs. Sleep is the only medicine I have left that works every time.","Nobody here gets sick. Nobody gets old, that I can tell. I've stopped writing it down.","If you're hurt, come in. If you're scared, come in anyway."],
+    small:["One of them wears a nurse's uniform. She says my name at the door. Says I sent her. I have never once had a nurse.","Sleep where the stone hangs. Sleep is the only medicine I have left that works every time.","Nobody here gets sick. Nobody gets old, that I can tell. I've stopped writing it down.","If you're hurt, come in. If you're scared, come in anyway."],
     night:["You can take the cot. I don't sleep much.","They used to scratch at that window. I moved the bed."] },
   { id:'abel', name:'Abel Tanner', role:'Farmer', look:{shirt:0x8a6a4a,pants:0x3a4a6a,skin:0xb5876a,hair:0x6a4a2a,hat:'straw',overalls:0x3a4a6a,beard:true,scale:1.06}, home:'farmhouse', work:'field', speed:1.4, offset:0,
     intro:["Abel Tanner. That's Ruth up by the house, and the two terrors are June and Pip.","Ground out here grows anything you put in it. Quick, too. Too quick. I try not to think about it."],
@@ -921,14 +1022,14 @@ const PEOPLE = [
     topics:[
       {learn:'stones', lines:["Hal brought June a drawing once. Five standing stones, out northeast, each with a little picture carved on it.","He said they wake up if you touch them in the right order. He said he'd tell her the order when he got back.","She still keeps the drawing under her pillow."]},
     ],
-    small:["June's nine. Pip's six. They were eight and five when we came.","I keep a list of everyone who's come through. Some of them, I cross off.","There's bread in the farmhouse. Help yourself."],
+    small:["The bride comes up to the farmhouse most nights. She doesn't run. She doesn't have to. Once she's seen you, she just keeps coming until morning.","June's nine. Pip's six. They were eight and five when we came.","I keep a list of everyone who's come through. Some of them, I cross off.","There's bread in the farmhouse. Help yourself."],
     night:["Hush. Let them knock. They get tired of it."] },
   { id:'june', name:'June Tanner', role:'Farm kid', look:{shirt:0xb05a5a,pants:0x3a3a40,skin:0xd8b49a,hair:0x8a5a2a,dress:0x7a4a6a,longHair:true,scale:0.72}, home:'farmhouse', work:'yard', speed:1.9, offset:0.5,
     intro:["Hi! Are you staying? Most people stay. Everybody stays."],
     topics:[
       {learn:'bus', lines:["Pip and me found a yellow bus in the woods. Northwest. We weren't supposed to go that far.","There's little wooden people out there around it. They hide in the trees.","I think the bus wants them back. That's what it feels like. Don't tell Mom we went."]},
     ],
-    small:["Mr. Cobb drew me a picture of rocks. He's coming back to finish it.","Pip's scared of the scarecrow. I'm not.","Do you have any candy? You don't. Nobody does."],
+    small:["There's two ladies in yellow sweaters who look exactly the same. They wave at me at the same time. Pip hides.","Mr. Cobb drew me a picture of rocks. He's coming back to finish it.","Pip's scared of the scarecrow. I'm not.","Do you have any candy? You don't. Nobody does."],
     night:["Is it them? Is it knocking?","I'm not scared. Pip is."] },
   { id:'pip', name:'Pip Tanner', role:'Farm kid', look:{shirt:0x4a6a9a,pants:0x3a4a6a,skin:0xd8b49a,hair:0xb07a3a,overalls:0x3a4a6a,scale:0.6}, home:'farmhouse', work:'yard', speed:2.0, offset:0.5,
     intro:["I'm Pip. I'm not allowed past the fence."],
@@ -941,7 +1042,7 @@ const PEOPLE = [
       {learn:'waystone', when:()=>!has('waystone'), lines:["Hal sat right where you're standing and told me there were four things out in the trees that the town keeps for itself.","Bring them to the stone up by the north sign, he said, and the road lets you go.","I told him he was drunk. He was. Didn't make him wrong."]},
       {when:()=>S.relics.length>0, lines:["What's that you've got in your pocket? It's humming. I can hear it from here.","Hal said the town's things would feel like that. Like they wanted to be somewhere."]},
     ],
-    small:["Nessa keeps the books. Nothing to keep, but she keeps them.","I had a bar in Galway once. Or I think I did.","They don't come in here. I've never once asked why."],
+    small:["There's a fella out there in a top hat. Polite as you like. When he spots you and tips that hat, the rest of them come running. If you see him, don't let him see you.","Nessa keeps the books. Nothing to keep, but she keeps them.","I had a bar in Galway once. Or I think I did.","They don't come in here. I've never once asked why."],
     night:["Pull up a stool. Nobody's leaving.","Hear that? Don't. Just don't."] },
   { id:'nessa', name:'Nessa Reilly', role:"Cormac's daughter", look:{shirt:0x2e3a4a,pants:0x2a2a30,skin:0xe0b49a,hair:0x7a2e14,longHair:true}, home:'bar', work:'bar', speed:1.5, offset:0.2,
     intro:["Dad'll talk your ear off and tell you nothing. If you want a straight answer, ask me."],
@@ -1069,6 +1170,11 @@ const sfx={
   chime:n=>tone([523,587,659,784,880][n-1]||880,1.8,0.06,'sine',0,0.01),
   crank:()=>{ tone(1500+Math.random()*300,0.03,0.04,'square'); burst(1200,0.05,0.05); },
   whisperBurst:()=>{ if(!A.ctx) return; const t=A.ctx.currentTime; A.whG.gain.cancelScheduledValues(t); A.whG.gain.setValueAtTime(A.whG.gain.value,t); A.whG.gain.linearRampToValueAtTime(0.35,t+0.2); A.whG.gain.linearRampToValueAtTime(0.0,t+2.2); },
+  clink:v=>{ tone(2600+Math.random()*500,0.12,0.04*v,'sine'); tone(3300+Math.random()*400,0.1,0.03*v,'sine',0.07); },
+  rattle:v=>{ for(let i=0;i<7;i++) tone(2400+Math.random()*1200,0.1,0.05*v,'sine',i*0.06+Math.random()*0.03); for(let i=0;i<2;i++) burst(420,0.08,0.4*v,0.5+i*0.25); },
+  hum:v=>{ // the bridal chorus, slow and a little flat
+    [[392,0.5],[523,0.4],[523,0.2],[523,0.9],[392,0.5],[587,0.4],[494,0.2],[523,0.9]].reduce((t,[f,d])=>{ tone(f*0.985,d,0.05*v,'triangle',t,0.08); return t+d+0.06; },0); },
+  ding:()=>{ tone(1760,1.6,0.07,'sine',0,0.003); tone(2640,1.0,0.03,'sine',0,0.003); },
   musicBox:()=>{ [784,659,587,523,587,659,523,392,440,523].forEach((f,i)=>tone(f,0.9,0.05,'sine',i*0.32,0.005)); },
   death:()=>{ tone(60,3,0.4,'sawtooth',0,0.01); burst(900,1.6,0.5); }
 };
@@ -1100,6 +1206,8 @@ function renderJournal(){
   if(!leads.length) h+=`<p style="margin:0">Nothing yet. The people in town have been here a while. Someone must know something.</p>`;
   else { h+='<ul>'; for(const [k,L] of leads) h+=item(L.done(),L.title,L.text()); h+='</ul>'; }
   if(S.relics.length && !has('waystone')) h+=`<p style="margin:8px 0 0"><i>You're carrying ${S.relics.map(r=>RELIC_NAMES[r].toLowerCase()).join(', ')}. It hums, like it belongs somewhere.</i></p>`;
+  const seen=Object.keys(KINDS).filter(k=>S.seen[k]);
+  if(seen.length){ h+='<h4>Things that come at night</h4>'; for(const k of seen) h+=`<p class="heard"><b>${KINDS[k].title}</b><br>${KINDS[k].desc}</p>`; }
   if(S.heard.length){ h+='<h4>What people told you</h4>'; for(const n of S.heard) h+=`<p class="heard"><b>${n.who}</b><br>${n.text}</p>`; }
   const notes=Object.values(S.notesRead); if(notes.length){ h+='<h4>Notes you have read</h4>'; for(const n of notes) h+=`<p class="heard"><b>${n.title}</b><br>${n.text}</p>`; }
   $('journalBody').innerHTML=h;
