@@ -24,10 +24,17 @@ Then go to http://localhost:8000.
 | Shift | Run (uses stamina) |
 | Mouse | Look |
 | E | Talk, open and close doors, read, pick up (hold for some things) |
+| 1 – 6 | Choose what to say in a conversation |
 | F | Flashlight |
+| R | Swap in fresh batteries |
 | M | Map (if you can find one) |
 | J / Tab | Journal: leads, what people told you, notes |
 | T | Hold to wait for dawn while protected |
+| N | Music on or off |
+
+## Getting started
+
+You wake up in your wrecked car on the road south of town at 2 p.m. Your flashlight and two spare batteries are in the trunk. The flashlight drains while it's on (a set of batteries lasts about one night), so you'll want spares: you can find them in the sheriff's office, the general store, the gas station and the Tanners' barn, and two of the townsfolk will give you some if you ask.
 
 ## The town
 
@@ -40,9 +47,15 @@ Then go to http://localhost:8000.
 | Abel and Ruth Tanner | The farm, east of town | With their kids June (9) and Pip (6) |
 | Cormac Reilly | The Lantern (bar) | Lives there with his daughter Nessa |
 
-Everyone keeps a daily routine: out to work in the morning, home before dark. They open and close doors as they go. You can stay the night with any of them.
+Everyone keeps a daily routine: out to work in the morning, home before dark. They open and close doors as they go, glance at you as you pass, say hello, and shout at you to get inside if they catch you out at dusk. You can stay the night with any of them.
 
-The buildings have working doors, porches, shutters, chimneys and furnished interiors: the sheriff's office has a cell, the clinic has an exam table, the Lantern has a bar and a fireplace, the farm has fields, a fence, a barn and a scarecrow. The barn, Hal Cobb's house, the chapel and the empty house have no talisman.
+Talking to someone opens a menu: ask about getting out, about the things at night, about the other townsfolk, ask for a favor (coffee from Marisol makes running less tiring, bread from Ruth helps you get your breath back, Dale and Nessa hand over batteries, Eli shares a survival tip), or just chat. Options with something new to hear are marked.
+
+The buildings have working doors, clear glass windows you can see through in both directions, porches, shutters, chimneys and furnished interiors split into rooms. The Boone house and the farmhouse have a living room with a kitchen and fireplace, and a bedroom behind. The sheriff's office has two fully enclosed barred cells. The diner has a kitchen behind the counter, the Lantern has a storeroom where the Reillys sleep, and the clinic has a waiting room and an exam room. There's also a general store, a gas station and a water tower. The barn, Hal Cobb's house, the chapel, the store, the gas station and the empty house have no talisman.
+
+## Sound
+
+All sound is generated in the browser. There's a low drone that darkens as night falls, sparse piano-like notes, and tremolo strings that rise when something is hunting you. During the day you hear birds; at night, crickets, owls, distant screams, laughter in the trees and twigs snapping behind you. Creature sounds come from where the creature is: knocks at the door, tapping on the glass, the Milkman's bottles, the Bride's humming. The crickets go quiet when one of them is close. Sound is muffled indoors, and you breathe hard when you're winded or being chased. Headphones help.
 
 ## The things at night
 

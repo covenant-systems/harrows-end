@@ -44,6 +44,7 @@ html,body{height:100%;margin:0;background:var(--night);color:var(--ink);overflow
 #inv{position:absolute;left:calc(18px + env(safe-area-inset-left,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));display:grid;gap:4px;font-size:13px}
 #inv .row{display:flex;gap:8px;align-items:center}
 #inv .k{color:var(--dim);min-width:84px;font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+#inv .low{color:#e2574c}
 #stam{position:absolute;left:50%;bottom:calc(26px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:160px;height:3px;background:rgba(255,255,255,.08);opacity:0;transition:opacity .4s}
 #stam i{display:block;height:100%;background:var(--ink);width:100%}
 #cross{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:rgba(232,225,207,.7)}
@@ -54,6 +55,8 @@ html,body{height:100%;margin:0;background:var(--night);color:var(--ink);overflow
 #hold i{display:block;height:100%;width:0;background:var(--warn)}
 #msg{position:absolute;left:50%;bottom:22%;transform:translateX(-50%);width:min(640px,88vw);text-align:center;font-family:var(--font-hand);font-size:19px;line-height:1.45;text-shadow:0 2px 6px #000;transition:opacity .6s}
 #sub{position:absolute;left:50%;bottom:13%;transform:translateX(-50%);width:min(600px,88vw);text-align:center;font-family:var(--font-hand);font-style:italic;color:#d6b2a8;font-size:17px;text-shadow:0 2px 6px #000;transition:opacity .8s}
+#sub.say{font-style:normal;color:#ead9b0}
+#sub.say b{font-family:var(--font-mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--warn);margin-right:8px}
 .screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(5,6,9,.88);
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px;box-sizing:border-box;overflow-y:auto}
 .screen .inner{max-width:620px;display:grid;gap:18px}
@@ -87,10 +90,14 @@ html,body{height:100%;margin:0;background:var(--night);color:var(--ink);overflow
 #clar{height:4px;background:#2a271f}#clar i{display:block;height:100%;background:#ffb94d;width:0}
 #transcript{font-family:var(--font-hand);font-size:15px;color:#d8ccaf;min-height:66px;line-height:1.5}
 #dialog{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(720px,calc(100vw - 32px));box-sizing:border-box;
-  background:rgba(14,13,11,.92);border:1px solid rgba(232,225,207,.22);border-radius:4px;padding:18px 22px;display:grid;gap:8px;box-shadow:0 14px 40px rgba(0,0,0,.6)}
+  background:rgba(14,13,11,.93);border:1px solid rgba(232,225,207,.22);border-radius:4px;padding:18px 22px;display:grid;gap:8px;box-shadow:0 14px 40px rgba(0,0,0,.6)}
 #dlgName{font-family:var(--font-title);font-size:22px;color:var(--warn)}
 #dlgRole{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-left:10px;font-family:var(--font-mono)}
 #dlgText{font-family:var(--font-hand);font-size:18px;line-height:1.5;color:var(--ink)}
+#dlgOpts{display:grid;gap:5px;margin-top:2px}
+#dlgOpts div{font-size:14px;color:var(--ink)}
+#dlgOpts b{display:inline-block;min-width:26px;color:var(--warn);font-weight:600}
+#dlgOpts em{font-style:normal;color:var(--warn);font-size:12px;margin-left:8px}
 #dlgMore{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
 @media (prefers-reduced-motion:reduce){#msg,#sub,#danger{transition:none}}
 </style>
@@ -121,11 +128,14 @@ html,body{height:100%;margin:0;background:var(--night);color:var(--ink);overflow
       <kbd>W A S D</kbd><span>Walk &nbsp;·&nbsp; <kbd>Shift</kbd> to run</span>
       <kbd>Mouse</kbd><span>Look around</span>
       <kbd>E</kbd><span>Talk, open doors, read, pick up (hold for some things)</span>
-      <kbd>F</kbd><span>Flashlight</span>
+      <kbd>1 – 6</kbd><span>Choose what to say in a conversation</span>
+      <kbd>F</kbd><span>Flashlight &nbsp;·&nbsp; <kbd>R</kbd> to change batteries</span>
       <kbd>M</kbd><span>Map (if you can find one)</span>
       <kbd>J</kbd><span>Journal: what you've learned</span>
       <kbd>T</kbd><span>Hold to wait for dawn while protected</span>
+      <kbd>N</kbd><span>Music on or off</span>
     </div>
+    <p class="small">Best with headphones. Sound tells you a lot about what is near.</p>
     <p class="small" id="touchWarn" hidden>This game needs a keyboard and mouse.</p>
     <button class="btn" id="startBtn">Enter the town</button>
   </div>
@@ -154,6 +164,7 @@ html,body{height:100%;margin:0;background:var(--night);color:var(--ink);overflow
 <div id="dialog" hidden>
   <div><span id="dlgName"></span><span id="dlgRole"></span></div>
   <div id="dlgText"></div>
+  <div id="dlgOpts"></div>
   <div id="dlgMore">E to continue</div>
 </div>
 
@@ -174,9 +185,10 @@ const pick = arr => arr[Math.floor(Math.random()*arr.length)];
 
 if (matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches) $('touchWarn').hidden = false;
 
-const WORLD = 240;          // the world wraps at |x| or |z| > WORLD
-const HOUR_SEC = 15;        // real seconds per in-game hour
+const WORLD = 240;
+const HOUR_SEC = 15;
 const NIGHT_START = 20, NIGHT_END = 6;
+const CAR = {x:-6, z:96, rot:0.5};
 
 // ---------- renderer / scene ----------
 let renderer;
@@ -201,20 +213,21 @@ const roomLight = new THREE.PointLight(0xffb36b, 0, 15, 1.4); scene.add(roomLigh
 
 addEventListener('resize', () => { camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 
-// ---------- static batching: merge every static mesh that shares a material into one draw call ----------
+// ---------- static batching ----------
 const UNIT_BOX = new THREE.BoxGeometry(1,1,1).toNonIndexed();
 const _m=new THREE.Matrix4(), _q=new THREE.Quaternion(), _s=new THREE.Vector3(), _p=new THREE.Vector3(), UP=new THREE.Vector3(0,1,0);
 const batches = new Map();
 function sgeo(geo,mat,m){ const g=(geo.index?geo.toNonIndexed():geo.clone()); g.applyMatrix4(m); if(!batches.has(mat)) batches.set(mat,[]); batches.get(mat).push(g); }
 function sbox(sx,sy,sz,mat,x,y,z,ry=0){ _q.setFromAxisAngle(UP,ry); _m.compose(_p.set(x,y,z),_q,_s.set(sx,sy,sz)); sgeo(UNIT_BOX,mat,_m); }
 function splane(w,h,mat,x,y,z,ry=0,rx=0){ const e=new THREE.Euler(rx,ry,0,'YXZ'); _q.setFromEuler(e); _m.compose(_p.set(x,y,z),_q,_s.set(1,1,1)); sgeo(new THREE.PlaneGeometry(w,h),mat,_m); }
+function scyl(r0,r1,h,seg,mat,x,y,z){ _m.makeTranslation(x,y,z); sgeo(new THREE.CylinderGeometry(r0,r1,h,seg),mat,_m); }
 function buildBatches(){
   for(const [mat,list] of batches){
     let n=0; for(const g of list) n+=g.attributes.position.count;
     const pos=new Float32Array(n*3), nor=new Float32Array(n*3), uv=new Float32Array(n*2); let o=0;
     for(const g of list){ const c=g.attributes.position.count; pos.set(g.attributes.position.array,o*3); nor.set(g.attributes.normal.array,o*3); if(g.attributes.uv) uv.set(g.attributes.uv.array,o*2); o+=c; g.dispose(); }
     const bg=new THREE.BufferGeometry(); bg.setAttribute('position',new THREE.BufferAttribute(pos,3)); bg.setAttribute('normal',new THREE.BufferAttribute(nor,3)); bg.setAttribute('uv',new THREE.BufferAttribute(uv,2));
-    bg.computeBoundingSphere(); scene.add(new THREE.Mesh(bg,mat));
+    bg.computeBoundingSphere(); const mesh=new THREE.Mesh(bg,mat); if(mat.transparent) mesh.renderOrder=2; scene.add(mesh);
   }
   batches.clear();
 }
@@ -232,12 +245,15 @@ function textTex(lines,w,h,bg,fg,font){ return canvasTex(w,h,(g)=>{ g.fillStyle=
   lines.forEach((l,i)=>{ g.font=l.f||font; g.fillText(l.t, w/2, h*(i+1)/(lines.length+1)); }); }); }
 const plankTex = canvasTex(64,64,(g,w,h)=>{ g.fillStyle='#6a5038'; g.fillRect(0,0,w,h); for(let i=0;i<8;i++){ g.fillStyle=i%2?'#5e4631':'#715640'; g.fillRect(0,i*8,w,7); g.fillStyle='rgba(0,0,0,.25)'; g.fillRect(0,i*8+7,w,1); } });
 plankTex.wrapS=plankTex.wrapT=THREE.RepeatWrapping; plankTex.repeat.set(4,4);
+const slabTex = canvasTex(64,64,(g,w,h)=>{ g.fillStyle='#77756e'; g.fillRect(0,0,w,h); for(let i=0;i<300;i++){ g.fillStyle=`rgba(0,0,0,${R()*0.12})`; g.fillRect(R()*w,R()*h,2,2);} g.fillStyle='rgba(0,0,0,.35)'; g.fillRect(0,0,w,2); });
+slabTex.wrapS=slabTex.wrapT=THREE.RepeatWrapping;
 
 // ---------- ground & road ----------
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(WORLD*2+240, WORLD*2+240), new THREE.MeshLambertMaterial({map:groundTex}));
 ground.rotation.x=-Math.PI/2; scene.add(ground);
 const road = new THREE.Mesh(new THREE.PlaneGeometry(8, WORLD*2+240), new THREE.MeshLambertMaterial({map:roadTex}));
 road.rotation.x=-Math.PI/2; road.position.y=0.02; scene.add(road);
+{ const t=slabTex.clone(); t.needsUpdate=true; t.repeat.set(1,75); for(const sx of [-4.8,4.8]){ const sw=new THREE.Mesh(new THREE.PlaneGeometry(1.6,150),new THREE.MeshLambertMaterial({map:t})); sw.rotation.x=-Math.PI/2; sw.position.set(sx,0.025,10); scene.add(sw); } }
 
 // ---------- collision ----------
 const boxes = [];
@@ -262,6 +278,11 @@ function collide(p,r,extra){
       for(const c of cell){ const dx=p.x-c.x, dz=p.z-c.z, d=Math.hypot(dx,dz), m=r+c.r; if(d<m && d>1e-6){ p.x=c.x+dx/d*m; p.z=c.z+dz/d*m; } } }
   }
 }
+function clearAt(x,z,r){
+  for(const b of boxes){ const cx=clamp(x,b.minX,b.maxX), cz=clamp(z,b.minZ,b.maxZ); if((x-cx)**2+(z-cz)**2<r*r) return false; }
+  const cell=grid.get(Math.floor(x/CELL)+','+Math.floor(z/CELL)); if(cell) for(const c of cell) if(Math.hypot(x-c.x,z-c.z)<r+c.r) return false;
+  return true;
+}
 
 // ---------- interactables ----------
 const inter = [];
@@ -271,37 +292,37 @@ function addInteract(o){ inter.push(o); return o; }
 const lam = (c,extra) => new THREE.MeshLambertMaterial(Object.assign({color:c},extra||{}));
 const M = {
   roof: lam(0x3a302b), roofRed: lam(0x5a2a24), roofGreen: lam(0x2f3b33),
-  floor: lam(0xffffff,{map:plankTex}), ceil: lam(0x6c6457),
+  floor: lam(0xffffff,{map:plankTex}), ceil: lam(0x6c6457), plaster: lam(0xb3a892),
   wood: lam(0x5b412c), woodLight: lam(0x8a6a48), dark: lam(0x1d1c1b),
-  metal: lam(0x4b4e50), stone: lam(0x6b6c68), brick: lam(0x6e3b2e), found: lam(0x3d3b37),
+  metal: lam(0x4b4e50), stone: lam(0x6b6c68), brick: lam(0x6e3b2e), found: lam(0x3d3b37), concrete: lam(0x8a8880),
   fabric: lam(0x6a5a52), sheet: lam(0xd8d4c8), white: lam(0xe4e2da),
   blanketR: lam(0x7a3030), blanketB: lam(0x2f4a6a), blanketG: lam(0x4a5a3a), blanketY: lam(0x9a7a3a),
-  red: lam(0x7a2020), crate: lam(0x7a6040), hay: lam(0xc9a74a), green: lam(0x3e5a36),
+  red: lam(0x7a2020), crate: lam(0x7a6040), hay: lam(0xc9a74a), green: lam(0x3e5a36), couch: lam(0x5a4a3e), couchG: lam(0x3e4a3a),
   iron: lam(0x2a2a2c), trimW: lam(0xd8d0bc), trimD: lam(0x3b3026), shutter: lam(0x2f3a33), shutterR: lam(0x5a2a26),
   rugR: lam(0x6b2a2a), rugB: lam(0x2c3a5a), rugG: lam(0x3e4a2e), bottle: lam(0x2e5a3a,{emissive:0x0e2a16}),
   paper: new THREE.MeshBasicMaterial({color:0xcfc4a6}), bulb: new THREE.MeshBasicMaterial({color:0x555555}),
   fire: new THREE.MeshBasicMaterial({color:0xff7a2a}), lampshade: new THREE.MeshBasicMaterial({color:0xffcf8a}),
   candle: new THREE.MeshBasicMaterial({color:0xffe2a8}), jukebox: lam(0x8a4a2a,{emissive:0x5a2a10}),
-  dirt: lam(0x55462f), crop: lam(0xffffff), glassIn: lam(0x0c1014,{side:THREE.DoubleSide}),
+  dirt: lam(0x55462f), crop: lam(0xffffff), battery: lam(0xd8b030,{emissive:0x3a2a08}),
 };
 function box(sx,sy,sz,mat,x,y,z,parent=scene){ const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),mat); m.position.set(x,y,z); parent.add(m); return m; }
 
 // ---------- game state ----------
 const S = {
   started:false, paused:false, dead:false, won:false, ui:null, locked:false, noLock:false,
-  hour:7, day:1, deaths:0, time:0,
-  pos:{x:-11,z:0}, yaw:-Math.PI/2, pitch:0, stamina:1, tired:false, bob:0, lastStep:0,
-  carry:false, hasMap:false, flashlight:false,
+  hour:14, day:1, deaths:0, time:0,
+  pos:{x:-3.4,z:93.4}, yaw:2.85, pitch:0, stamina:1, tired:false, bob:0, lastStep:0,
+  carry:false, hasMap:false, flashlight:false, hasLight:false, battery:1, batteries:0, trunkDone:false, fed:false, coffee:false,
   tokens:0, busDone:false, stoneSeq:0, stonesDone:false, radioDone:false, wellDone:false,
-  relics:[], placed:0, exitOpen:false, crank:0, tunedT:0, freq:88.0,
+  relics:[], placed:0, exitOpen:false, crank:0, tunedT:0, freq:88.0, musicOn:true,
   know:{}, heard:[], notesRead:{}, visited:{}, seen:{}, chaseSting:0
 };
 const RELIC_NAMES={soldier:'Tin soldier',glyph:'Glyph stone',tape:'Cassette tape',musicbox:'Music box'};
 
 // ---------- doors ----------
 const doors = [];
-function openDoor(d,auto){ if(d.open) return; d.open=true; d.autoT=auto?3.5:0; sfx.creak(clamp(1-dist(d.c,S.pos)/30,0.08,1)); }
-function closeDoor(d){ if(!d.open) return; d.open=false; d.autoT=0; sfx.thunk(clamp(1-dist(d.c,S.pos)/30,0.08,1)); }
+function openDoor(d,auto){ if(d.open) return; d.open=true; d.autoT=auto?3.5:0; sfx.creakAt(d.c.x,d.c.z); }
+function closeDoor(d){ if(!d.open) return; d.open=false; d.autoT=0; sfx.thunkAt(d.c.x,d.c.z); }
 function makeDoor(b,dw,dh,color){
   const t=b.t, n=b.n;
   const hinge={x:b.doorC.x-t[0]*dw/2, z:b.doorC.z-t[1]*dw/2};
@@ -311,7 +332,6 @@ function makeDoor(b,dw,dh,color){
   const leaf=new THREE.Mesh(new THREE.BoxGeometry(dw-0.04,dh-0.04,0.07),mat); leaf.position.set(dw/2,dh/2,0); pivot.add(leaf);
   for(const y of [0.55,1.55]){ const p=new THREE.Mesh(new THREE.BoxGeometry(dw*0.6,0.6,0.09),lam(new THREE.Color(color).multiplyScalar(0.8).getHex())); p.position.set(dw/2,y,0); pivot.add(p); }
   const knobM=lam(0xb08a3a); for(const s of [-1,1]){ const k=new THREE.Mesh(new THREE.SphereGeometry(0.04,8,6),knobM); k.position.set(dw-0.18,1.0,s*0.06); pivot.add(k); }
-  // which way is "inward"?
   const testDir=a=>({x:Math.cos(a), z:-Math.sin(a)});
   const td=testDir(base+1.5), sign=(td.x*n[0]+td.z*n[1])<0?1:-1;
   const d={b,pivot,base,sign,ang:0,open:false,autoT:0,c:b.doorC,box:b.doorBox};
@@ -338,15 +358,16 @@ function makeTalismanMesh(){
   const cord=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.35,4), M.dark); cord.position.y=0.34; g.add(cord);
   return g;
 }
-// building-local coordinates: u runs along the door wall, v runs from the door wall into the room
+// building-local coordinates: u runs along the door wall, v runs from the door wall into the building
 function Luv(b,u,v){ return {x:b.doorC.x-b.n[0]*v+b.t[0]*u, z:b.doorC.z-b.n[1]*v+b.t[1]*u}; }
+const vOf=(b,p)=>-((p.x-b.doorC.x)*b.n[0]+(p.z-b.doorC.z)*b.n[1]);
 function fbox(b,u,v,su,sv,sy,mat,y0=0,col=false){ const p=Luv(b,u,v);
   const sx=Math.abs(b.t[0])*su+Math.abs(b.n[0])*sv, sz=Math.abs(b.t[1])*su+Math.abs(b.n[1])*sv;
   sbox(sx,sy,sz,mat,p.x,y0+sy/2,p.z); if(col) addBox(p.x,p.z,sx,sz); return p; }
 function colUV(b,u,v,su,sv){ const p=Luv(b,u,v); addBox(p.x,p.z,Math.abs(b.t[0])*su+Math.abs(b.n[0])*sv, Math.abs(b.t[1])*su+Math.abs(b.n[1])*sv); }
-const faceDoor = b => Math.atan2(b.n[0],b.n[1]);       // rotation for a plane on the back wall, facing the door
+const faceDoor = b => Math.atan2(b.n[0],b.n[1]);
 function makeBuilding(def){
-  const b=Object.assign({h:3.2, talisman:false, trim:M.trimW, shutter:M.shutter, roofMat:M.roof, doorColor:0x4a3626}, def);
+  const b=Object.assign({h:3.2, talisman:false, trim:M.trimW, shutter:M.shutter, roofMat:M.roof, doorColor:0x4a3626, parts:[], solid:[]}, def);
   const {x,z,w,d,h,door}=b, t=0.3, dw=1.5, dh=2.3, hw=w/2, hd=d/2;
   const wallMat=lam(b.color); b.wallMat=wallMat;
   const n={N:[0,-1],S:[0,1],W:[-1,0],E:[1,0]}[door]; b.n=n; b.t=[-n[1],n[0]];
@@ -358,63 +379,67 @@ function makeBuilding(def){
     ? {minX:b.doorC.x-dw/2-0.1,maxX:b.doorC.x+dw/2+0.1,minZ:b.doorC.z-0.3,maxZ:b.doorC.z+0.3}
     : {minX:b.doorC.x-0.3,maxX:b.doorC.x+0.3,minZ:b.doorC.z-dw/2-0.1,maxZ:b.doorC.z+dw/2+0.1};
   b.inner={minX:x-hw+t/2,maxX:x+hw-t/2,minZ:z-hd+t/2,maxZ:z+hd-t/2};
-  b.winMat=lam(0x161b20,{emissive:0xffa24a, emissiveIntensity:0, side:THREE.DoubleSide});
-  const seg=(cx,cz,sx,sz,y0,y1,col=true)=>{ sbox(sx,y1-y0,sz,wallMat,cx,(y0+y1)/2,cz); if(col){ addBox(cx,cz,sx,sz); sbox(sx+0.12,0.32,sz+0.12,M.found,cx,0.16,cz); } };
-  const win=(cx,cz,ax,out)=>{ // ax: axis the wall runs along; out: outward normal
-    const ry=ax==='x'?0:Math.PI/2;
-    for(const s of [-1,1]){ const outer=(ax==='x'?out[1]:out[0])===s; splane(1.1,0.95,outer?b.winMat:M.glassIn,cx+(ax==='z'?s*(t/2+0.01):0),1.65,cz+(ax==='x'?s*(t/2+0.01):0),ry); }
-    const ox=cx+out[0]*(t/2+0.03), oz=cz+out[1]*(t/2+0.03), along=ax==='x'?[1,0]:[0,1];
-    const P=(a,y,sa,sy,sd,mat)=>sbox(along[0]?sa:sd,sy,along[1]?sa:sd,mat,ox+along[0]*a,y,oz+along[1]*a);
-    P(0,2.17,1.34,0.09,0.08,b.trim); P(0,1.13,1.4,0.08,0.16,b.trim); P(-0.6,1.65,0.08,1.0,0.08,b.trim); P(0.6,1.65,0.08,1.0,0.08,b.trim); P(0,1.65,0.04,0.95,0.05,b.trim);
-    P(-0.92,1.65,0.42,1.05,0.04,b.shutter); P(0.92,1.65,0.42,1.05,0.04,b.shutter);
+  // clear glass: see in, see out. It glows warm at night when someone is home.
+  b.winMat=new THREE.MeshLambertMaterial({color:0x9fb4bc,emissive:0xffa24a,emissiveIntensity:0,transparent:true,opacity:0.14,side:THREE.DoubleSide,depthWrite:false});
+  b.windows=[];
+  const addWindow=(cx,cz,ax,out)=>{
+    const ry=ax==='x'?0:Math.PI/2, along=ax==='x'?[1,0]:[0,1];
+    splane(1.1,1.0,b.winMat,cx,1.65,cz,ry);
+    const Q=(off,a,y,sa,sy,sd,mat)=>{ const ox=cx+out[0]*off+along[0]*a, oz=cz+out[1]*off+along[1]*a; sbox(along[0]?sa:sd,sy,along[1]?sa:sd,mat,ox,y,oz); };
+    const o1=t/2+0.03;
+    Q(o1,0,2.19,1.34,0.09,0.08,b.trim); Q(o1,0,1.11,1.4,0.08,0.16,b.trim); Q(o1,-0.6,1.65,0.08,1.06,0.08,b.trim); Q(o1,0.6,1.65,0.08,1.06,0.08,b.trim);
+    Q(0,0,1.65,0.035,1.0,0.05,b.trim); Q(0,0,1.65,1.1,0.035,0.05,b.trim);
+    Q(o1,-0.92,1.65,0.42,1.05,0.04,b.shutter); Q(o1,0.92,1.65,0.42,1.05,0.04,b.shutter);
+    Q(-(t/2+0.06),0,1.13,1.3,0.06,0.14,M.wood);
+    b.windows.push({x:cx+out[0]*1.1, z:cz+out[1]*1.1, out});
   };
   const sides={N:{cx:x,cz:z-hd,len:w+t,ax:'x',out:[0,-1]},S:{cx:x,cz:z+hd,len:w+t,ax:'x',out:[0,1]},W:{cx:x-hw,cz:z,len:d-t,ax:'z',out:[-1,0]},E:{cx:x+hw,cz:z,len:d-t,ax:'z',out:[1,0]}};
   for(const [k,s] of Object.entries(sides)){
-    const span=s.ax==='x'?w:d;
-    if(k!==door){
-      if(s.ax==='x') seg(s.cx,s.cz,s.len,t,0,h); else seg(s.cx,s.cz,t,s.len,0,h);
-      const nw=Math.max(1,Math.floor(span/4.2));
-      for(let i=0;i<nw;i++){ const off=((i+0.5)/nw-0.5)*span; if(s.ax==='x') win(s.cx+off,s.cz,'x',s.out); else win(s.cx,s.cz+off,'z',s.out); }
-    } else {
-      const part=(s.len-dw)/2, off=dw/2+part/2;
-      if(s.ax==='x'){ seg(s.cx-off,s.cz,part,t,0,h); seg(s.cx+off,s.cz,part,t,0,h); seg(s.cx,s.cz,dw,t,dh,h,false); }
-      else { seg(s.cx,s.cz-off,t,part,0,h); seg(s.cx,s.cz+off,t,part,0,h); seg(s.cx,s.cz,t,dw,dh,h,false); }
-      if(span>=7.5) for(const sg of [-1,1]){ const o=sg*(dw/2+1.5); if(s.ax==='x') win(s.cx+o,s.cz,'x',s.out); else win(s.cx,s.cz+o,'z',s.out); }
-      // door frame
-      const ox=b.doorC.x+n[0]*(t/2+0.04), oz=b.doorC.z+n[1]*(t/2+0.04);
-      for(const sg of [-1,1]) sbox(s.ax==='x'?0.14:0.1,dh+0.1,s.ax==='x'?0.1:0.14,b.trim,ox+b.t[0]*sg*(dw/2+0.07),(dh+0.1)/2,oz+b.t[1]*sg*(dw/2+0.07));
-      sbox(s.ax==='x'?dw+0.42:0.12,0.14,s.ax==='x'?0.12:dw+0.42,b.trim,ox,dh+0.08,oz);
-    }
+    const span=s.ax==='x'?w:d, ops=[], along=s.ax==='x'?[1,0]:[0,1];
+    const winOK=!b.noWindows && !b.solid.includes(k);
+    if(k===door){ ops.push({c:0,w:dw,y0:0,y1:dh,door:true}); if(span>=7.5 && winOK) for(const sg of [-1,1]) ops.push({c:sg*(dw/2+1.5),w:1.1,y0:1.15,y1:2.15}); }
+    else if(winOK){ const nw=Math.max(1,Math.floor(span/4.2)); for(let i=0;i<nw;i++) ops.push({c:((i+0.5)/nw-0.5)*span,w:1.1,y0:1.15,y1:2.15}); }
+    ops.sort((p,q)=>p.c-q.c);
+    const P=(a0,a1,y0,y1,col)=>{ const len=a1-a0; if(len<0.01||y1-y0<0.01) return; const mid=(a0+a1)/2, cx=s.cx+along[0]*mid, cz=s.cz+along[1]*mid, sx=along[0]?len:t, sz=along[1]?len:t;
+      sbox(sx,y1-y0,sz,wallMat,cx,(y0+y1)/2,cz); if(col){ addBox(cx,cz,sx,sz); sbox(sx+0.12,0.32,sz+0.12,M.found,cx,0.16,cz); } };
+    let a=-s.len/2;
+    for(const o of ops){ const o0=o.c-o.w/2, o1=o.c+o.w/2; P(a,o0,0,h,true); if(o.y0>0) P(o0,o1,0,o.y0,true); P(o0,o1,o.y1,h,false);
+      if(!o.door) addWindow(s.cx+along[0]*o.c, s.cz+along[1]*o.c, s.ax, s.out);
+      else { const ox=b.doorC.x+n[0]*(t/2+0.04), oz=b.doorC.z+n[1]*(t/2+0.04);
+        for(const sg of [-1,1]) sbox(s.ax==='x'?0.14:0.1,dh+0.1,s.ax==='x'?0.1:0.14,b.trim,ox+b.t[0]*sg*(dw/2+0.07),(dh+0.1)/2,oz+b.t[1]*sg*(dw/2+0.07));
+        sbox(s.ax==='x'?dw+0.42:0.12,0.14,s.ax==='x'?0.12:dw+0.42,b.trim,ox,dh+0.08,oz); }
+      a=o1; }
+    P(a,s.len/2,0,h,true);
   }
-  // corner boards
   for(const [cx,cz] of [[x-hw,z-hd],[x+hw,z-hd],[x-hw,z+hd],[x+hw,z+hd]]) sbox(0.38,h,0.38,b.trim,cx,h/2,cz);
   sbox(w+t+0.1,0.22,d+t+0.1,b.trim,x,h-0.11,z);
-  // floor, ceiling, roof
   splane(w,d,M.floor,x,0.03,z,0,-Math.PI/2);
   sbox(w+t,0.12,d+t,M.ceil,x,h+0.06,z);
   const big=Math.max(w,d), rh=b.roofH||2.2;
   const cone=new THREE.ConeGeometry(big/Math.SQRT2,rh,4,1);
   const mr=new THREE.Matrix4().makeTranslation(x,h+0.12,z).multiply(new THREE.Matrix4().makeScale((w+1.1)/big,1,(d+1.1)/big)).multiply(new THREE.Matrix4().makeTranslation(0,rh/2,0)).multiply(new THREE.Matrix4().makeRotationY(Math.PI/4));
   sgeo(cone,b.roofMat,mr);
-  // porch
+  // interior partitions: a wall across the building with a doorway in it
+  for(const p of b.parts){
+    const lo=-b.otherHalf+0.15, hi=b.otherHalf-0.15, seg=(u0,u1,y0,y1,col)=>{ if(u1-u0<0.01) return; fbox(b,(u0+u1)/2,p.v,u1-u0,0.14,y1-y0,M.plaster,y0,col); };
+    seg(lo,p.g0,0,h,true); seg(p.g1,hi,0,h,true); seg(p.g0,p.g1,2.3,h,false);
+    for(const gu of [p.g0,p.g1]) fbox(b,gu,p.v,0.1,0.22,2.3,M.trimD,0,false);
+    fbox(b,(p.g0+p.g1)/2,p.v,p.g1-p.g0+0.2,0.22,0.1,M.trimD,2.3,false);
+  }
   if(b.porch){ const pw=Math.min(b.otherHalf*2-0.6,6.2), pd=2.4, pc={x:b.doorC.x+n[0]*(pd/2+0.15), z:b.doorC.z+n[1]*(pd/2+0.15)};
     const sx=Math.abs(b.t[0])*pw+Math.abs(n[0])*pd, sz=Math.abs(b.t[1])*pw+Math.abs(n[1])*pd;
     sbox(sx,0.14,sz,M.woodLight,pc.x,0.07,pc.z);
     for(const sg of [-1,1]){ const px=b.doorC.x+n[0]*(pd+0.05)+b.t[0]*sg*(pw/2-0.15), pz=b.doorC.z+n[1]*(pd+0.05)+b.t[1]*sg*(pw/2-0.15);
       sbox(0.16,2.6,0.16,b.trim,px,1.3,pz); addCircle(px,pz,0.14);
-      // railing
       const rx=b.doorC.x+n[0]*(pd+0.05)+b.t[0]*sg*(pw/4+0.6), rz=b.doorC.z+n[1]*(pd+0.05)+b.t[1]*sg*(pw/4+0.6), rl=pw/2-1.2;
       if(rl>0.3) sbox(Math.abs(b.t[0])*rl+0.06,0.08,Math.abs(b.t[1])*rl+0.06,b.trim,rx,0.95,rz); }
     sbox(sx+0.3,0.12,sz+0.2,b.roofMat,pc.x+n[0]*0.1,2.66,pc.z+n[1]*0.1);
   }
-  if(b.sign){ const tex=textTex([{t:b.sign}],512,96,b.signBg||'#2a221c',b.signFg||'#d8b06a','bold 54px Georgia');
+  if(b.sign){ const tex=textTex([{t:b.sign}],512,96,b.signBg||'#2a221c',b.signFg||'#d8b06a','bold 50px Georgia');
     const p=new THREE.Mesh(new THREE.PlaneGeometry(Math.min(4.2,b.otherHalf*1.5),0.8),lam(0xffffff,{map:tex}));
     p.position.set(b.doorC.x+n[0]*(t/2+0.05),b.porch?3.0:dh+0.75,b.doorC.z+n[1]*(t/2+0.05)); p.rotation.y=Math.atan2(n[0],n[1]); scene.add(p); }
-  if(b.chimney!==undefined){ const p=Luv(b,b.chimney,b.D-0.6); sbox(0.85,h+2.6,0.85,M.brick,p.x,(h+2.6)/2,p.z); }
-  // door
   b.door=makeDoor(b,dw,dh,b.doorColor);
-  if(b.doorOpen) b.door.open=true, b.door.ang=b.door.sign*1.75;
-  // talisman hook beside the door, inside
+  if(b.doorOpen){ b.door.open=true; b.door.ang=b.door.sign*1.75; }
   const hp=Luv(b,1.25,0.22);
   sbox(0.06,0.06,0.06,M.iron,hp.x,2.25,hp.z);
   b.tal=makeTalismanMesh(); b.tal.position.set(hp.x,2.0,hp.z); b.tal.rotation.y=Math.atan2(n[0],n[1]); scene.add(b.tal);
@@ -439,31 +464,59 @@ const F = {
   table(b,u,v,su=1.4,sv=0.9,mat=M.wood){ fbox(b,u,v,su,sv,0.07,mat,0.72,true); fbox(b,u,v,0.14,0.14,0.72,M.dark); },
   chair(b,u,v,face=1,mat=M.wood){ fbox(b,u,v,0.45,0.45,0.06,mat,0.44,true); fbox(b,u,v+face*0.2,0.45,0.06,0.55,mat,0.5); fbox(b,u,v,0.08,0.08,0.44,M.dark); },
   bed(b,u,v,su,sv,blanket=M.blanketR){ fbox(b,u,v,su,sv,0.32,M.wood,0,true); fbox(b,u,v,su-0.08,sv-0.08,0.14,M.sheet,0.32);
-    if(sv>=su){ fbox(b,u,v+0.3,su-0.04,sv-0.66,0.06,blanket,0.44); fbox(b,u,v-sv/2+0.3,su-0.3,0.35,0.1,M.white,0.46); fbox(b,u,v-sv/2+0.05,su,0.08,0.75,M.wood,0.32); }
+    if(sv>=su){ fbox(b,u,v-0.3,su-0.04,sv-0.66,0.06,blanket,0.44); fbox(b,u,v+sv/2-0.3,su-0.3,0.35,0.1,M.white,0.46); fbox(b,u,v+sv/2-0.05,su,0.08,0.75,M.wood,0.32); }
     else { fbox(b,u+0.3,v,su-0.66,sv-0.04,0.06,blanket,0.44); fbox(b,u-su/2+0.3,v,0.35,sv-0.3,0.1,M.white,0.46); fbox(b,u-su/2+0.05,v,0.08,sv,0.75,M.wood,0.32); } },
+  bunk(b,u,v,su,sv){ F.bed(b,u,v,su,sv,M.blanketB); for(const s of [-1,1]) for(const q of [-1,1]) fbox(b,u+s*(su/2-0.04),v+q*(sv/2-0.04),0.08,0.08,1.9,M.wood);
+    fbox(b,u,v,su,sv,0.08,M.wood,1.25); fbox(b,u,v,su-0.1,sv-0.1,0.12,M.sheet,1.33); fbox(b,u,v-0.3,su-0.12,sv-0.7,0.06,M.blanketR,1.45); },
+  cot(b,u,v,su,sv){ fbox(b,u,v,su,sv,0.38,M.metal,0,true); fbox(b,u,v,su-0.1,sv-0.1,0.08,M.blanketG,0.38); },
   shelf(b,u,v,su,sv,h=2,items=true){ fbox(b,u,v,su,sv,h,M.wood,0,true);
-    if(items) for(const y of [0.55,1.1,1.65]) if(y<h-0.2) for(let i=0;i<3;i++){ const c=[M.red,M.blanketB,M.crate,M.white,M.bottle][Math.floor(R()*5)]; fbox(b,u+(i-1)*su*0.28,v,0.18+R()*0.12,sv+0.04,0.25+R()*0.12,c,y); } },
-  fireplace(b,u,su=1.6){ const v=b.D-0.5; fbox(b,u,v,su,0.7,1.25,M.stone,0,true); fbox(b,u,v-0.36,su*0.56,0.04,0.7,M.dark,0.05); fbox(b,u,v-0.3,su*0.4,0.1,0.32,M.fire,0.06); fbox(b,u,v-0.02,su+0.24,0.86,0.08,M.wood,1.25);
-    const p=Luv(b,u,b.D); sbox(0.9,b.h+2.6,0.9,M.brick,p.x,(b.h+2.6)/2,p.z); },
+    if(items) for(const y of [0.55,1.1,1.65]) if(y<h-0.2) for(let i=0;i<3;i++){ const c=[M.red,M.blanketB,M.crate,M.white,M.bottle][Math.floor(R()*5)]; const ou=su>sv?(i-1)*su*0.28:0, ov=su>sv?0:(i-1)*sv*0.28; fbox(b,u+ou,v+ov,su>sv?0.2:su+0.04,su>sv?sv+0.04:0.2,0.25+R()*0.12,c,y); } },
+  fireplaceBack(b,u,su=1.6){ const v=b.D-0.5; fbox(b,u,v,su,0.7,1.25,M.stone,0,true); fbox(b,u,v-0.36,su*0.56,0.04,0.7,M.dark,0.05); fbox(b,u,v-0.3,su*0.4,0.1,0.32,M.fire,0.06); fbox(b,u,v-0.02,su+0.24,0.86,0.08,M.wood,1.25);
+    const p=Luv(b,u,b.D+0.3); sbox(0.9,b.h+2.6,0.9,M.brick,p.x,(b.h+2.6)/2,p.z); },
+  fireplaceSide(b,side,v,su=1.6){ const oh=b.otherHalf, uc=side*(oh-0.5);
+    fbox(b,uc,v,0.7,su,1.25,M.stone,0,true); fbox(b,uc-side*0.36,v,0.04,su*0.56,0.7,M.dark,0.05); fbox(b,uc-side*0.3,v,0.1,su*0.4,0.32,M.fire,0.06); fbox(b,side*(oh-0.45),v,0.86,su+0.24,0.08,M.wood,1.25);
+    const p=Luv(b,side*(oh+0.3),v); sbox(0.9,b.h+2.6,0.9,M.brick,p.x,(b.h+2.6)/2,p.z); },
   counter(b,u,v,su,sv,mat=M.wood){ fbox(b,u,v,su,sv,1.0,mat,0,true); fbox(b,u,v,su+0.12,sv+0.12,0.05,M.dark,1.0); },
   stool(b,u,v){ const p=fbox(b,u,v,0.36,0.36,0.07,M.red,0.68); fbox(b,u,v,0.08,0.08,0.68,M.metal); addCircle(p.x,p.z,0.2); },
   rug(b,u,v,su,sv,mat=M.rugR){ fbox(b,u,v,su,sv,0.015,mat,0.035); },
   crate(b,u,v,s=0.8,y=0){ fbox(b,u,v,s,s,s,M.crate,y,y===0); },
   hay(b,u,v,su=1.2,sv=0.6,y=0){ fbox(b,u,v,su,sv,0.55,M.hay,y,y===0); },
   pew(b,u,v,su){ fbox(b,u,v,su,0.45,0.08,M.wood,0.44,true); fbox(b,u,v+0.22,su,0.07,0.62,M.wood,0.48); fbox(b,u-su/2+0.05,v,0.08,0.45,0.44,M.wood); fbox(b,u+su/2-0.05,v,0.08,0.45,0.44,M.wood); },
-  bars(b,u0,u1,v){ for(let u=u0;u<=u1+0.01;u+=0.24) fbox(b,u,v,0.05,0.05,2.4,M.iron); fbox(b,(u0+u1)/2,v,u1-u0,0.07,0.07,M.iron,2.35); colUV(b,(u0+u1)/2,v,u1-u0,0.12); },
+  barLine(b,u0,v0,u1,v1){ const L=Math.hypot(u1-u0,v1-v0), n=Math.max(1,Math.round(L/0.22));
+    for(let i=0;i<=n;i++){ const k=i/n; fbox(b,lerp(u0,u1,k),lerp(v0,v1,k),0.05,0.05,2.4,M.iron); }
+    const alongU=Math.abs(u1-u0)>Math.abs(v1-v0), su=alongU?L:0.07, sv=alongU?0.07:L;
+    fbox(b,(u0+u1)/2,(v0+v1)/2,su,sv,0.07,M.iron,2.35); fbox(b,(u0+u1)/2,(v0+v1)/2,su,sv,0.07,M.iron,1.1); colUV(b,(u0+u1)/2,(v0+v1)/2,alongU?L:0.14,alongU?0.14:L); },
   lamp(b,u,v,y=0.79){ fbox(b,u,v,0.1,0.1,0.25,M.dark,y); fbox(b,u,v,0.3,0.3,0.22,M.lampshade,y+0.24); },
+  floorLamp(b,u,v){ fbox(b,u,v,0.06,0.06,1.5,M.dark); fbox(b,u,v,0.4,0.4,0.3,M.lampshade,1.45); },
   cabinet(b,u,v,su,sv,h,mat=M.woodLight){ fbox(b,u,v,su,sv,h,mat,0,true); },
   stove(b,u,v){ fbox(b,u,v,0.9,0.8,0.9,M.iron,0,true); fbox(b,u-0.2,v,0.26,0.26,0.02,M.dark,0.9); fbox(b,u+0.2,v,0.26,0.26,0.02,M.dark,0.9); },
+  icebox(b,u,v){ fbox(b,u,v,0.8,0.7,1.75,M.white,0,true); fbox(b,u,v,0.05,0.72,0.05,M.metal,1.0); },
+  sink(b,u,v,su=0.9,sv=0.6){ fbox(b,u,v,su,sv,0.9,M.white,0,true); fbox(b,u,v,su-0.3,sv-0.2,0.04,M.dark,0.88); },
+  couch(b,u,v,su,sv,mat=M.couch,back=1){ fbox(b,u,v,su,sv,0.45,mat,0,true); fbox(b,u,v+back*(sv/2-0.1),su,0.2,0.88,mat); fbox(b,u-su/2+0.1,v,0.2,sv,0.62,mat); fbox(b,u+su/2-0.1,v,0.2,sv,0.62,mat); },
+  wardrobe(b,u,v,su=1.2,sv=0.6){ fbox(b,u,v,su,sv,2.0,M.wood,0,true); fbox(b,u,v,0.03,sv+0.02,1.7,M.dark,0.15); },
+  dresser(b,u,v,su=1.4,sv=0.5){ fbox(b,u,v,su,sv,0.9,M.woodLight,0,true); for(const y of [0.2,0.5]) fbox(b,u,v,su-0.1,sv+0.02,0.03,M.dark,y); },
+  piano(b,u,v,su=1.5,sv=0.6){ fbox(b,u,v,su,sv,1.25,M.dark,0,true); fbox(b,u,v-0.3,su-0.1,0.2,0.05,M.white,0.78); },
+  keg(b,u,v){ const p=Luv(b,u,v); scyl(0.3,0.3,0.8,10,M.wood,p.x,0.4,p.z); scyl(0.31,0.31,0.06,10,M.iron,p.x,0.2,p.z); scyl(0.31,0.31,0.06,10,M.iron,p.x,0.6,p.z); addCircle(p.x,p.z,0.32); },
+  gunRack(b,side,v){ const u=side*(b.otherHalf-0.2); fbox(b,u,v,0.12,1.5,1.1,M.wood,0.8); for(let i=0;i<4;i++) fbox(b,u-side*0.06,v-0.55+i*0.36,0.06,0.07,1.05,M.dark,0.85); },
+  coatRack(b,u,v){ fbox(b,u,v,0.06,0.06,1.8,M.wood); fbox(b,u,v,0.4,0.06,0.04,M.wood,1.7); fbox(b,u,v,0.06,0.4,0.04,M.wood,1.7); fbox(b,u,v,0.3,0.3,0.05,M.wood); const p=Luv(b,u,v); addCircle(p.x,p.z,0.18); },
+  lectern(b,u,v){ fbox(b,u,v,0.5,0.4,1.1,M.wood,0,true); fbox(b,u,v,0.6,0.5,0.05,M.wood,1.1); },
+  plant(b,u,v){ const p=Luv(b,u,v); scyl(0.18,0.14,0.35,8,M.brick,p.x,0.17,p.z); sbox(0.4,0.5,0.4,M.green,p.x,0.6,p.z); addCircle(p.x,p.z,0.2); },
   wallPaper(b,u,v,y,w=0.35,h=0.45){ const p=Luv(b,u,v); splane(w,h,M.paper,p.x,y,p.z,faceDoor(b)); },
+  sidePaper(b,side,v,y,w=0.35,h=0.45){ const p=Luv(b,side*(b.otherHalf-0.17),v); splane(w,h,M.paper,p.x,y,p.z,Math.atan2(-side*b.t[0],-side*b.t[1])); },
 };
 
-// ---------- notes ----------
+// ---------- notes & pickups ----------
 function openNoteFn(title,text,key,learnKeys){ return ()=>{ openNote(title,text,key); if(learnKeys) for(const k of learnKeys) learn(k); }; }
 function addNotePost(x,z,rotY,title,text,key,learnKeys){
   sbox(0.1,1.4,0.1,M.wood,x,0.7,z); const p=new THREE.Mesh(new THREE.PlaneGeometry(0.4,0.5),M.paper); p.position.set(x+Math.sin(rotY)*0.06,1.35,z+Math.cos(rotY)*0.06); p.rotation.y=rotY; scene.add(p);
   addCircle(x,z,0.15);
   addInteract({x,y:1.35,z,r:2.4,label:()=> 'Read the note', act:openNoteFn(title,text,key,learnKeys)});
+}
+function addBatteries(x,y,z,count,text){
+  const g=new THREE.Group(); g.position.set(x,y,z); scene.add(g);
+  for(let i=0;i<count;i++){ const c=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.11,8),M.battery); c.rotation.z=Math.PI/2; c.position.set(0,0.03,(i-(count-1)/2)*0.07); g.add(c); }
+  const it=addInteract({x,y,z,r:2.2,enabled:()=>g.visible,label:()=>`Take the batteries (${count})`,act:()=>{ g.visible=false; S.batteries+=count; sfx.pick(); showMsg(text||`${count} batteries. Enough to keep the light on a while longer.`); }});
+  return g;
 }
 
 // ---------- the town ----------
@@ -475,66 +528,93 @@ const LOC = {
   waystone:{x:6.5,z:-72,name:'the waystone'}
 };
 
-// West side of the road (doors face east)
-makeBuilding({id:'station',name:"Sheriff's office",x:-14,z:-26,w:10,d:8,door:'E',color:0x6f6a5e,talisman:true,sign:'SHERIFF',signBg:'#1e2a36',signFg:'#e0c070',porch:true,roofMat:M.roofGreen,doorColor:0x2e3a46,
-  interior(b){ F.table(b,-1.6,4.2,1.8,0.9,M.woodLight); F.chair(b,-1.6,4.9,1); F.chair(b,-1.6,3.4,-1); F.lamp(b,-2.2,4.2);
-    F.bars(b,0.4,3.7,5.4); F.bed(b,2.6,7,1.6,0.9,M.blanketG); F.cabinet(b,-3.4,7.3,0.9,0.6,1.5,M.metal); F.cabinet(b,-3.4,6.4,0.9,0.6,1.5,M.metal);
-    F.wallPaper(b,-2.5,b.D-0.17,1.7,0.9,0.7); F.wallPaper(b,-1.1,b.D-0.17,1.6); F.rug(b,-1,2.5,2.4,1.6,M.rugB); }});
-const diner = makeBuilding({id:'diner',name:'Diner',x:-14,z:0,w:14,d:10,door:'E',color:0x7d6b5a,talisman:true,sign:'DINER',porch:true,roofMat:M.roofRed,shutter:M.shutterR,doorColor:0x6a2a24,
-  interior(b){ F.counter(b,0,10.6,6,0.8); for(let u=-2.5;u<=2.5;u+=1.25) F.stool(b,u,9.6);
-    for(const v of [3.2,6.4]) for(const s of [-1,1]){ F.table(b,s*4,v,1.3,1.0,M.red); fbox(b,s*4,v-0.95,1.6,0.5,0.5,M.red,0,true); fbox(b,s*4,v+0.95,1.6,0.5,0.5,M.red,0,true); fbox(b,s*4.7,v,0.2,2.3,1.1,M.red); }
-    F.stove(b,-3,13.3); F.counter(b,0,13.3,3.2,0.8,M.metal); F.cabinet(b,3.6,13.3,1.1,0.8,1.9,M.white); fbox(b,4.4,9.2,0.9,0.6,1.5,M.jukebox,0,true); F.lamp(b,-4,3.2); F.lamp(b,4,6.4); }});
-makeBuilding({id:'halHouse',name:"Hal's house",x:-14,z:28,w:8,d:8,door:'E',color:0x7a6f5a,talisman:false,porch:true,chimney:2.2,doorColor:0x3a3a34,doorOpen:true,
-  interior(b){ F.table(b,-2.7,4.6,1.6,0.9,M.woodLight); F.chair(b,-1.8,4.6,1); F.bed(b,2.5,6.6,1.5,2.0,M.blanketY); F.shelf(b,-3.4,7.4,1.2,0.5,1.8);
-    for(let i=0;i<6;i++){ const p=Luv(b,-3.83,2.6+i*0.75); splane(0.35,0.45,M.paper,p.x,1.4+(i%2)*0.5,p.z,Math.atan2(b.t[0],b.t[1])); }
-    F.crate(b,1.2,7.4); F.crate(b,1.2,7.4,0.6,0.8); F.rug(b,0,4,2,2.4,M.rugG); }});
+// West side of the road (doors face east). u<0 is the north side of the room.
+makeBuilding({id:'store',name:'General store',x:-14,z:-50,w:10,d:10,door:'E',color:0x6a5a48,talisman:false,sign:'GENERAL STORE',porch:true,roofMat:M.roofRed,doorColor:0x3a2a1e,
+  interior(b){ for(const u of [-3,0,3]) F.shelf(b,u,5.4,0.6,4.2,1.8);
+    F.shelf(b,0,9.5,8.8,0.5,2.0); F.counter(b,-3.4,1.6,1.6,0.8); fbox(b,-3.6,1.6,0.4,0.35,0.25,M.metal,1.05);
+    F.crate(b,3.9,1.4); F.crate(b,3.9,1.4,0.6,0.8); F.wallPaper(b,-1.4,b.D-0.17,1.7,0.6,0.4); }});
+makeBuilding({id:'station',name:"Sheriff's office",x:-14,z:-26,w:10,d:10,door:'E',color:0x6f6a5e,talisman:true,sign:'SHERIFF',signBg:'#1e2a36',signFg:'#e0c070',porch:true,roofMat:M.roofGreen,doorColor:0x2e3a46,vMax:5.0,
+  interior(b){
+    // two cells along the back wall, closed in by walls on three sides and bars on the fourth, with open barred doors
+    F.barLine(b,-4.85,5.6,-2.8,5.6); F.barLine(b,-1.6,5.6,1.6,5.6); F.barLine(b,2.8,5.6,4.85,5.6); F.barLine(b,0,5.6,0,9.85);
+    F.barLine(b,-2.8,5.6,-2.8,4.5); F.barLine(b,2.8,5.6,2.8,4.5);
+    F.cot(b,-3.6,8.6,1.2,1.9); F.cot(b,3.6,8.6,1.2,1.9); fbox(b,-1.0,9.4,0.3,0.3,0.35,M.metal,0,true); fbox(b,1.0,9.4,0.3,0.3,0.35,M.metal,0,true);
+    // the office
+    F.table(b,-2.6,2.6,1.8,0.9,M.woodLight); F.chair(b,-2.6,3.4,1); F.chair(b,-2.6,1.7,-1); F.lamp(b,-3.2,2.6); fbox(b,-2.0,2.6,0.4,0.3,0.25,M.dark,0.79);
+    F.cabinet(b,-4.4,1.0,0.7,0.7,1.4,M.metal); F.gunRack(b,1,2.8); fbox(b,4.5,4.2,0.5,1.4,0.45,M.wood,0,true);
+    F.coatRack(b,-1.0,0.7); F.wallPaper(b,-1.4,b.D-0.17,1.7,0.9,0.7); F.sidePaper(b,-1,4.0,1.6,0.8,0.6); F.rug(b,0,2.6,2,1.4,M.rugB); }});
+const diner = makeBuilding({id:'diner',name:'Diner',x:-14,z:0,w:14,d:10,door:'E',color:0x7d6b5a,talisman:true,sign:'DINER',porch:true,roofMat:M.roofRed,shutter:M.shutterR,doorColor:0x6a2a24,parts:[{v:11.5,g0:3.2,g1:4.6}],
+  interior(b){ F.counter(b,-0.8,10.0,7.4,0.8); for(let u=-4;u<=2.4;u+=1.25) F.stool(b,u,9.1);
+    for(const v of [2.6,5.0,7.3]){ F.table(b,-4.1,v,1.0,0.8,M.red); fbox(b,-4.1,v-0.75,1.4,0.45,0.48,M.red,0,true); fbox(b,-4.1,v+0.75,1.4,0.45,0.48,M.red,0,true); fbox(b,-4.1,v-1.0,1.4,0.1,1.1,M.red); fbox(b,-4.1,v+1.0,1.4,0.1,1.1,M.red); F.lamp(b,-4.4,v); }
+    for(const v of [3.2,6.4]){ F.table(b,3.4,v,1.1,1.1); F.chair(b,2.6,v,-1); F.chair(b,4.2,v,1); }
+    fbox(b,4.4,1.0,0.8,0.6,1.5,M.jukebox,0,true); F.plant(b,-4.5,0.7);
+    F.stove(b,-3.8,13.3); F.counter(b,-1.6,13.3,2.0,0.8,M.metal); F.icebox(b,0.6,13.4); F.sink(b,2.0,13.4); F.shelf(b,-4.6,12.4,0.5,1.0,1.8); }});
+makeBuilding({id:'halHouse',name:"Hal's house",x:-14,z:28,w:9,d:9,door:'E',color:0x7a6f5a,talisman:false,porch:true,doorColor:0x3a3a34,doorOpen:true,parts:[{v:5.2,g0:2.0,g1:3.3}],
+  interior(b){ F.table(b,-3.4,2.8,0.9,1.6,M.woodLight); F.chair(b,-2.7,2.8,1);
+    for(let i=0;i<6;i++) F.sidePaper(b,-1,1.2+i*0.65,1.35+(i%2)*0.55);
+    F.couch(b,2.9,3.6,1.0,1.0,M.couchG,1); F.shelf(b,-1.6,4.85,1.8,0.4,1.8); F.rug(b,0,2.6,2,2,M.rugG); F.floorLamp(b,3.8,1.2);
+    F.bed(b,-2.9,7.4,1.6,2.0,M.blanketY); F.wardrobe(b,3.6,8.2); F.crate(b,2.5,6.2); F.crate(b,2.5,6.2,0.55,0.8); F.lamp(b,-1.6,8.4,0.3); }});
 makeBuilding({id:'chapel',name:'Chapel',x:-15,z:56,w:9,d:13,door:'E',color:0xb0aa9c,talisman:false,h:4.4,roofH:3.6,trim:M.trimD,shutter:M.trimD,doorColor:0x3e2a1c,
-  interior(b){ for(let v=2.2;v<=6.6;v+=1.4) for(const s of [-1,1]) F.pew(b,s*3.3,v,2.6);
-    fbox(b,0,b.D-1.4,2.4,1.3,1.0,M.stone,0,true); for(const s of [-1,1]){ fbox(b,s*0.9,b.D-1.4,0.06,0.06,0.25,M.candle,1.0); } F.rug(b,0,4.6,1.4,7,M.rugR); }});
-// East side of the road (doors face west)
-makeBuilding({id:'booneHouse',name:'Boone house',x:14,z:-24,w:9,d:8,door:'W',color:0x6e7b7a,talisman:true,porch:true,chimney:-2,doorColor:0x2c3b4a,
-  interior(b){ F.bed(b,-2.8,7,1.8,2.0,M.blanketB); F.bed(b,3.2,6.8,1.0,1.9,M.blanketR); F.table(b,0.6,3.6,1.4,0.9); F.chair(b,0.1,3.6,-1); F.chair(b,1.1,3.6,-1);
-    F.fireplace(b,0.4); F.rug(b,0.4,5.6,2.4,1.6,M.rugR); F.shelf(b,-3.55,3.2,0.5,1.4,1.8); F.lamp(b,-1.8,7.8,0.3); }});
-makeBuilding({id:'clinic',name:'Clinic',x:14,z:4,w:10,d:9,door:'W',color:0xc8c6bc,talisman:true,sign:'CLINIC',signBg:'#e4e2da',signFg:'#7a2020',trim:M.trimD,shutter:M.shutter,doorColor:0xe4e2da,
-  interior(b){ fbox(b,-2.6,6,0.8,2.0,0.85,M.white,0,true); fbox(b,-2.6,5.2,0.8,0.4,0.12,M.white,0.85); F.cabinet(b,-3.95,3,0.6,1.6,1.9,M.white);
-    F.table(b,2.8,3.2,1.6,0.9); F.chair(b,2.8,4.0,1); F.lamp(b,3.3,3.2); F.bed(b,3.6,7.6,1.4,1.0,M.blanketG);
-    for(let u=-1.2;u<=1.4;u+=0.4) fbox(b,u,5.0,0.36,0.04,1.9,M.sheet,0.15); F.shelf(b,0.4,8.4,2,0.5,1.8); }});
-makeBuilding({id:'bar',name:'The Lantern',x:15,z:30,w:12,d:10,door:'W',color:0x5d4a3c,talisman:true,sign:'THE LANTERN',porch:true,chimney:4,doorColor:0x2a1e16,
-  interior(b){ F.counter(b,0,9.2,7,0.9); for(let u=-2.7;u<=2.7;u+=1.35) F.stool(b,u,8.2);
-    fbox(b,0,b.D-0.4,7,0.45,2.2,M.wood,0,true); for(let i=0;i<14;i++) fbox(b,-3+i*0.46,b.D-0.4,0.12,0.12,0.32,M.bottle,1.05+(i%2)*0.8);
-    for(const [u,v] of [[-3.4,3.2],[3.4,3.2],[-3.4,6]]){ F.table(b,u,v,1.1,1.1); F.chair(b,u+0.75,v,1); F.chair(b,u-0.75,v,-1); }
-    F.fireplace(b,4); F.rug(b,0,4.5,3,3,M.rugR); fbox(b,4.6,6.2,1.3,0.6,1.2,M.dark,0,true); F.lamp(b,-3.4,3.2); F.lamp(b,3.4,3.2); }});
-makeBuilding({id:'emptyHouse',name:'Empty house',x:14,z:56,w:8,d:8,door:'W',color:0x5f6e62,talisman:false,porch:true,chimney:-2,
-  interior(b){ F.bed(b,2.5,6.6,1.5,2.0,M.blanketG); F.table(b,-1.5,3.6,1.2,0.8); F.crate(b,-3,7); F.rug(b,0,4,2,2,M.rugB); }});
-// The farm, east of town
-makeBuilding({id:'farmhouse',name:'Tanner farmhouse',x:62,z:-6,w:10,d:8,door:'W',color:0xa8946a,talisman:true,porch:true,chimney:-3,roofMat:M.roofRed,doorColor:0x5a3a24,
-  interior(b){ F.table(b,0,3.6,2.2,1.0); for(const s of [-1,1]){ F.chair(b,s*0.6,4.4,1); F.chair(b,s*0.6,2.8,-1); }
-    F.bed(b,-3.4,7,1.8,1.9,M.blanketY); F.bed(b,3.6,7,1.0,1.8,M.blanketR); F.bed(b,2.3,7,1.0,1.8,M.blanketB); F.fireplace(b,0);
-    F.stove(b,-3.4,3); F.counter(b,-3.4,4.3,0.8,1.4); F.rug(b,0,5.6,2.4,1.4,M.rugG); }});
+  interior(b){ for(let v=1.8;v<=6.0;v+=1.4) for(const s of [-1,1]) F.pew(b,s*3.4,v,2.8);
+    fbox(b,0,b.D-1.4,2.4,1.3,1.0,M.stone,0,true); for(const s of [-1,1]){ fbox(b,s*0.9,b.D-1.4,0.06,0.06,0.25,M.candle,1.0); fbox(b,s*2.2,b.D-1.2,0.08,0.08,1.2,M.iron,0,false); fbox(b,s*2.2,b.D-1.2,0.06,0.06,0.2,M.candle,1.2); }
+    F.lectern(b,2.2,6.8); F.rug(b,0,4.0,1.4,6.6,M.rugR); }});
+// East side of the road (doors face west). u>0 is the north side of the room.
+makeBuilding({id:'booneHouse',name:'Boone house',x:15,z:-24,w:10,d:12,door:'W',color:0x6e7b7a,talisman:true,porch:true,doorColor:0x2c3b4a,parts:[{v:5.4,g0:-0.7,g1:0.7}],solid:['N'],
+  interior(b){ F.stove(b,-5.3,2.2); F.counter(b,-5.4,3.6,0.8,1.6); F.icebox(b,-5.4,4.75);
+    F.table(b,-2.4,3.0,1.6,1.0); F.chair(b,-2.9,3.75,1); F.chair(b,-1.9,3.75,1); F.chair(b,-2.9,2.25,-1);
+    F.couch(b,3.4,4.65,2.2,0.8,M.couch,1); F.couch(b,4.0,2.0,0.9,0.9,M.couchG,1); F.rug(b,3.4,3.2,2.4,1.6,M.rugR); F.fireplaceSide(b,1,2.6);
+    F.bed(b,-3.6,8.6,2.0,2.4,M.blanketB); F.bed(b,4.6,8.4,1.0,2.0,M.blanketR); F.dresser(b,0.8,9.6,1.6,0.5); F.wardrobe(b,-5.4,6.4,0.6,1.2); F.lamp(b,-1.9,9.5,0.3); F.rug(b,0.5,7.6,1.6,1.4,M.rugB); }});
+makeBuilding({id:'clinic',name:'Clinic',x:14,z:4,w:10,d:10,door:'W',color:0xc8c6bc,talisman:true,sign:'CLINIC',signBg:'#e4e2da',signFg:'#7a2020',trim:M.trimD,shutter:M.shutter,doorColor:0xe4e2da,parts:[{v:5.0,g0:-0.7,g1:0.7}],
+  interior(b){ for(let v=1.4;v<=4.0;v+=0.8) F.chair(b,-4.4,v,-1); F.table(b,3.0,3.2,2.0,0.8,M.white); F.chair(b,3.0,3.9,1); F.lamp(b,3.6,3.2); F.plant(b,4.4,0.8); F.sidePaper(b,-1,2.2,1.7,0.5,0.6);
+    fbox(b,-2.6,7.4,0.8,2.0,0.85,M.white,0,true); fbox(b,-2.6,8.2,0.7,0.35,0.12,M.white,0.85); F.cabinet(b,-4.5,6.2,0.6,1.4,1.9,M.white); F.sink(b,-4.5,8.6,0.6,0.9);
+    fbox(b,-1.4,6.2,0.05,0.05,1.8,M.metal); fbox(b,-1.4,6.2,0.2,0.08,0.3,M.sheet,1.6);
+    for(let v=5.7;v<=9.6;v+=0.45) fbox(b,1.0,v,0.04,0.4,1.9,M.sheet,0.15); F.cot(b,3.4,8.0,1.2,1.9); F.table(b,3.9,6.0,1.0,0.6); }});
+makeBuilding({id:'bar',name:'The Lantern',x:15,z:30,w:12,d:12,door:'W',color:0x5d4a3c,talisman:true,sign:'THE LANTERN',porch:true,doorColor:0x2a1e16,parts:[{v:9.6,g0:3.9,g1:5.3}],solid:['S'],
+  interior(b){ F.counter(b,-1.2,7.4,7.6,0.9); for(let u=-4.4;u<=2.0;u+=1.3) F.stool(b,u,6.4);
+    fbox(b,-1.2,9.25,7.6,0.45,2.2,M.wood,0,true); for(let i=0;i<16;i++) fbox(b,-4.8+i*0.48,9.0,0.12,0.12,0.32,M.bottle,1.05+(i%2)*0.8);
+    for(const [u,v] of [[0.4,2.4],[3.6,2.6],[0.4,4.6],[3.6,4.8]]){ F.table(b,u,v,1.0,1.0); F.chair(b,u-0.7,v,-1); F.chair(b,u+0.7,v,1); F.lamp(b,u,v); }
+    F.fireplaceSide(b,-1,3.4); F.couch(b,-3.8,4.9,1.8,0.8,M.couch,1); F.piano(b,5.0,6.8,0.6,1.6);
+    F.keg(b,-4.8,10.6); F.keg(b,-4.8,11.4); F.keg(b,-4.0,11.4); F.crate(b,-2.6,11.4); F.cot(b,-0.4,11.0,1.9,0.9); F.cot(b,2.0,11.0,1.9,0.9); }});
+makeBuilding({id:'emptyHouse',name:'Empty house',x:14,z:56,w:8,d:8,door:'W',color:0x5f6e62,talisman:false,porch:true,
+  interior(b){ F.bed(b,2.5,6.0,1.5,2.0,M.blanketG); F.table(b,-1.5,3.6,1.2,0.8); fbox(b,-0.4,3.0,0.45,0.45,0.5,M.wood,0,true); F.crate(b,-3,6.6); F.rug(b,0,4,2,2,M.rugB); F.fireplaceBack(b,-1.8,1.4); }});
+// gas station: canopy, pumps and a little booth
+makeBuilding({id:'gasBooth',name:'Gas station',x:17,z:-50,w:4,d:5,door:'W',color:0xc8c0a8,talisman:false,h:2.8,roofH:0.9,trim:M.trimD,
+  interior(b){ F.counter(b,0,2.6,2.6,0.7,M.metal); fbox(b,0.6,2.6,0.4,0.35,0.25,M.metal,1.05); F.shelf(b,-1.6,3.5,0.4,1.0,1.6); }});
+{ const cx=9.5, cz=-50; for(const [px,pz] of [[7.2,-53.6],[11.8,-53.6],[7.2,-46.4],[11.8,-46.4]]){ sbox(0.25,4.2,0.25,M.white,px,2.1,pz); addCircle(px,pz,0.18); }
+  sbox(6,0.4,8.4,M.white,cx,4.3,cz); sbox(6.1,0.18,8.5,M.red,cx,4.05,cz);
+  const sg=new THREE.Mesh(new THREE.PlaneGeometry(3,0.4),lam(0xffffff,{map:textTex([{t:'GAS'}],256,48,'#7a2020','#f4eedc','bold 34px Georgia')})); sg.position.set(cx-3.06,4.3,cz); sg.rotation.y=-Math.PI/2; scene.add(sg);
+  for(const pz of [-52,-48]){ sbox(0.6,1.5,0.4,M.red,cx,0.75,pz); sbox(0.5,0.25,0.42,M.white,cx,1.3,pz); sbox(0.9,0.15,0.6,M.concrete,cx,0.07,pz); addBox(cx,pz,0.7,0.5); }
+  const slab=new THREE.Mesh(new THREE.PlaneGeometry(9,10),M.concrete); slab.rotation.x=-Math.PI/2; slab.position.set(10.5,0.02,cz); scene.add(slab); }
+// the farm, east of town
+makeBuilding({id:'farmhouse',name:'Tanner farmhouse',x:62,z:-6,w:10,d:12,door:'W',color:0xa8946a,talisman:true,porch:true,roofMat:M.roofRed,doorColor:0x5a3a24,parts:[{v:5.4,g0:-0.7,g1:0.7}],solid:['N'],
+  interior(b){ F.stove(b,-5.3,2.2); F.counter(b,-5.4,3.6,0.8,1.6); F.icebox(b,-5.4,4.75);
+    F.table(b,-1.6,3.0,2.0,1.0); for(const s of [-1,1]){ F.chair(b,-1.6+s*0.6,3.75,1); F.chair(b,-1.6+s*0.6,2.25,-1); }
+    F.fireplaceSide(b,1,2.6); F.couch(b,4.2,4.6,1.0,0.9,M.couchG,1); F.rug(b,3.2,3.0,2.2,1.6,M.rugG);
+    F.bed(b,-3.8,8.6,2.0,2.4,M.blanketY); F.bunk(b,4.6,8.4,1.0,2.0); F.dresser(b,-0.6,9.6,1.6,0.5); fbox(b,2.2,9.5,0.9,0.5,0.5,M.red,0,true); F.lamp(b,-0.6,9.6,0.9); }});
 makeBuilding({id:'barn',name:'Barn',x:78,z:18,w:12,d:14,door:'W',color:0x7a2a22,talisman:false,h:5,roofH:3.6,trim:M.trimW,shutter:M.trimW,doorColor:0x6a241e,
   interior(b){ for(let v=3;v<=10;v+=3.5) fbox(b,-3.2,v,3.6,0.12,1.3,M.wood,0,true); F.hay(b,4,9); F.hay(b,4,9,1.2,0.6,0.55); F.hay(b,4.2,7.4); F.hay(b,2.6,10.6);
     F.crate(b,4.4,3.2); F.crate(b,4.4,4.2); fbox(b,1,11,1.6,2.6,1.2,M.metal,0,true); }});
 
-// diner extras: note on the counter
-{ const p=Luv(B.diner,0.6,10.6); const n=new THREE.Mesh(new THREE.PlaneGeometry(0.35,0.45),M.paper); n.rotation.x=-Math.PI/2; n.rotation.z=0.3; n.position.set(p.x,1.06,p.z); scene.add(n);
+// diner note on the counter
+{ const p=Luv(B.diner,-0.2,10.0); const n=new THREE.Mesh(new THREE.PlaneGeometry(0.35,0.45),M.paper); n.rotation.x=-Math.PI/2; n.rotation.z=0.3; n.position.set(p.x,1.06,p.z); scene.add(n);
   addInteract({x:p.x,y:1.06,z:p.z,r:2.4,label:()=>'Read the note on the counter',act:()=>openNote('Left on the counter',
     `If you're reading this, you came in off the road like the rest of us. Don't bother driving out. The road brings you back around. Every time.<br><br>
     <b>The rules.</b> Be inside before dark. Only trust a room with a stone hanging by the door. Don't open up for anybody, no matter what they sound like or who they say they are.<br><br>
     There's coffee in the pot. I'm usually around in the daytime. Come find me.<br><br>— M.`,'counter')}); }
 // Hal's map and notebook
 let halMapMesh;
-{ const b=B.halHouse, p=Luv(b,-2.9,4.6);
-  halMapMesh=new THREE.Mesh(new THREE.PlaneGeometry(0.7,0.55),new THREE.MeshBasicMaterial({color:0xc9b98f})); halMapMesh.rotation.x=-Math.PI/2; halMapMesh.rotation.z=0.2; halMapMesh.position.set(p.x,0.8,p.z); scene.add(halMapMesh);
+{ const b=B.halHouse, p=Luv(b,-3.5,2.6);
+  halMapMesh=new THREE.Mesh(new THREE.PlaneGeometry(0.55,0.7),new THREE.MeshBasicMaterial({color:0xc9b98f})); halMapMesh.rotation.x=-Math.PI/2; halMapMesh.rotation.z=0.2; halMapMesh.position.set(p.x,0.8,p.z); scene.add(halMapMesh);
   addInteract({x:p.x,y:0.8,z:p.z,r:2.4,enabled:()=>!S.hasMap,label:()=>"Take the hand-drawn map",act:()=>{ S.hasMap=true; halMapMesh.visible=false; sfx.pick(); learn('marks');
     showMsg("A map of the town and the woods around it, in pencil. Four places in the trees are marked with an X. Press M to look at it."); }});
-  const q=Luv(b,-2.3,4.4); const nb=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.03,0.3),M.blanketR); nb.position.set(q.x,0.81,q.z); scene.add(nb);
+  const q=Luv(b,-3.3,3.3); const nb=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.03,0.3),M.blanketR); nb.position.set(q.x,0.81,q.z); scene.add(nb);
   addInteract({x:q.x,y:0.82,z:q.z,r:2.2,label:()=>"Read Hal's notebook",act:openNoteFn("Hal Cobb's notebook",
     `<i>Day 31.</i> The road loops. I measured it. Same sign, same crack in the asphalt, every single time.<br><br>
     <i>Day 40.</i> The town keeps things. I've found four places out in the trees that feel kept. I marked them on the map so I wouldn't lose them.<br><br>
     <i>Day 52.</i> The stone under the NOW LEAVING sign has four hollows worn into the top. Four. I am not a superstitious man.<br><br>
     <i>Day 58.</i> Going back out to the marks tomorrow. If I'm right, the stone wants whatever the trees are hiding. If I'm wrong, tell Ruth's girl I'm sorry about the drawing.<br><br>
     <span style="opacity:.6">The rest of the pages are blank.</span>`,'hal',['hal','marks','waystone'])}); }
-// chapel altar + spare talisman
+// chapel altar, spare talisman, steeple
 let spareTal;
 { const b=B.chapel, p=Luv(b,0,b.D-1.4);
   spareTal=makeTalismanMesh(); spareTal.position.set(p.x,1.08,p.z); spareTal.rotation.x=-Math.PI/2; scene.add(spareTal);
@@ -543,21 +623,27 @@ let spareTal;
     spareTal.visible=false; S.carry=true; sfx.pick(); showMsg('A spare stone, still on its cord. You could hang it anywhere you need to sleep.'); }});
   const w=Luv(b,-1.6,b.D-0.17); const pn=new THREE.Mesh(new THREE.PlaneGeometry(0.4,0.5),M.paper); pn.position.set(w.x,1.6,w.z); pn.rotation.y=faceDoor(b); scene.add(pn);
   addInteract({x:w.x,y:1.6,z:w.z,r:2.4,label:()=>'Read the note',act:()=>openNote('Pinned behind the altar',"Spare stone. Hang it where you'll be when it gets dark. Out in the trees there's nothing to keep you but what you bring.",'chapel')});
-  // steeple
   sbox(2.2,3,2.2,b.wallMat,-15,b.h+3.2,56); sgeo(new THREE.ConeGeometry(1.7,4,4),M.roof,new THREE.Matrix4().makeTranslation(-15,b.h+6.7,56).multiply(new THREE.Matrix4().makeRotationY(Math.PI/4)));
   sbox(0.1,1.2,0.1,M.trimD,-15,b.h+9.2,56); sbox(0.6,0.1,0.1,M.trimD,-15,b.h+9.4,56);
 }
+// batteries around town
+{ const p=Luv(B.station,-2.0,2.4); addBatteries(p.x,0.79,p.z,1,'One battery, rolling loose in the desk drawer.'); }
+{ const p=Luv(B.store,-3.0,1.6); addBatteries(p.x,1.05,p.z,3,'A card of three batteries, still in the packaging. Nobody is going to charge you for them.'); }
+{ const p=Luv(B.gasBooth,-0.4,2.6); addBatteries(p.x,1.05,p.z,2); }
+{ const p=Luv(B.barn,4.4,3.2); addBatteries(p.x,0.81,p.z,2,'A shoebox of batteries on top of the crate, right where Abel said.'); }
 
-// street lamps, mailboxes, benches, the farm road
-for(const [lx,lz] of [[-5.2,-52],[5.2,-36],[-5.2,-12],[5.2,16],[-5.2,40],[5.2,64],[-5.2,74]]){ const side=Math.sign(lx);
+// water tower, lamps, mailboxes, benches, the farm road
+{ const wx=-32, wz=-10; for(const [dx,dz] of [[-2,-2],[2,-2],[-2,2],[2,2]]){ scyl(0.15,0.2,11,6,M.metal,wx+dx,5.5,wz+dz); addCircle(wx+dx,wz+dz,0.25); }
+  for(const y of [3,7]){ sbox(4.2,0.1,0.1,M.metal,wx,y,wz-2); sbox(4.2,0.1,0.1,M.metal,wx,y,wz+2); sbox(0.1,0.1,4.2,M.metal,wx-2,y,wz); sbox(0.1,0.1,4.2,M.metal,wx+2,y,wz); }
+  scyl(3,3,4,16,lam(0x7a8a8a),wx,13,wz); sgeo(new THREE.ConeGeometry(3.3,1.6,16),M.roof,new THREE.Matrix4().makeTranslation(wx,15.8,wz)); scyl(3.05,3.05,0.2,16,M.metal,wx,11.1,wz); }
+for(const [lx,lz] of [[-5.2,-60],[5.2,-36],[-5.2,-12],[5.2,16],[-5.2,40],[5.2,64],[-5.2,74]]){ const side=Math.sign(lx);
   sbox(0.14,4.2,0.14,M.metal,lx,2.1,lz); sbox(0.9,0.08,0.08,M.metal,lx-side*0.4,4.2,lz);
   const bl=new THREE.Mesh(new THREE.SphereGeometry(0.14,8,6),M.bulb); bl.position.set(lx-side*0.8,4.08,lz); scene.add(bl); addCircle(lx,lz,0.12); }
-for(const b of buildings){ if(b.x>40) continue; const side=Math.sign(b.x); const mx=side*4.7, mz=b.doorC.z+3.6;
-  if(['diner','chapel','bar','station','clinic'].includes(b.id)) continue;
+for(const b of buildings){ if(!['booneHouse','halHouse','emptyHouse'].includes(b.id)) continue; const side=Math.sign(b.x); const mx=side*4.7, mz=b.doorC.z+3.8;
   sbox(0.1,1.1,0.1,M.wood,mx,0.55,mz); sbox(0.28,0.25,0.5,M.metal,mx,1.2,mz); addCircle(mx,mz,0.1); }
-for(const [bx,bz,ry] of [[-6.5,49,0],[-6.5,63,0],[6.6,21,0]]){ sbox(0.5,0.08,1.8,M.wood,bx,0.45,bz,ry); sbox(0.08,0.5,1.8,M.wood,bx-0.22*Math.sign(bx),0.7,bz,ry); sbox(0.4,0.45,0.08,M.dark,bx,0.22,bz-0.8); sbox(0.4,0.45,0.08,M.dark,bx,0.22,bz+0.8); addBox(bx,bz,0.5,1.8); }
-{ const path=new THREE.Mesh(new THREE.PlaneGeometry(53,2.6),M.dirt); path.rotation.x=-Math.PI/2; path.position.set(30.5,0.015,-6); scene.add(path);
-  const yard=new THREE.Mesh(new THREE.PlaneGeometry(14,30),M.dirt); yard.rotation.x=-Math.PI/2; yard.position.set(52,0.012,6); scene.add(yard); }
+for(const [bx,bz] of [[-6.5,49],[-6.5,63],[6.6,20]]){ sbox(0.5,0.08,1.8,M.wood,bx,0.45,bz); sbox(0.08,0.5,1.8,M.wood,bx-0.22*Math.sign(bx),0.7,bz); sbox(0.4,0.45,0.08,M.dark,bx,0.22,bz-0.8); sbox(0.4,0.45,0.08,M.dark,bx,0.22,bz+0.8); addBox(bx,bz,0.5,1.8); }
+{ const path=new THREE.Mesh(new THREE.PlaneGeometry(51,2.6),M.dirt); path.rotation.x=-Math.PI/2; path.position.set(31.5,0.015,-6); scene.add(path);
+  const yard=new THREE.Mesh(new THREE.PlaneGeometry(10,30),M.dirt); yard.rotation.x=-Math.PI/2; yard.position.set(51,0.012,10); scene.add(yard); }
 
 // farm fence, fields and a scarecrow
 const FARM={minX:46,maxX:92,minZ:-16,maxZ:42};
@@ -566,16 +652,14 @@ const FARM={minX:46,maxX:92,minZ:-16,maxZ:42};
     if(side==='W'||side==='E'){ const x=side==='W'?FARM.minX:FARM.maxX; for(const y of [0.55,1.05]) sbox(0.08,0.1,L,M.woodLight,x,y,mid); addBox(x,mid,0.2,L); for(let p=a0;p<=a1+0.01;p+=2.4) sbox(0.14,1.3,0.14,M.wood,x,0.65,p); }
     else { const z=side==='N'?FARM.minZ:FARM.maxZ; for(const y of [0.55,1.05]) sbox(L,0.1,0.08,M.woodLight,mid,y,z); addBox(mid,z,L,0.2); for(let p=a0;p<=a1+0.01;p+=2.4) sbox(0.14,1.3,0.14,M.wood,p,0.65,z); } };
   for(const side of ['W','E','N','S']){ const [lo,hi]=side==='W'||side==='E'?[FARM.minZ,FARM.maxZ]:[FARM.minX,FARM.maxX]; const g=gates.find(g=>g.side===side); run(side,lo,g.a); run(side,g.b,hi); }
-  const crops=[]; for(let x=50;x<=68;x+=1.6) for(let z=8;z<=38;z+=0.9) crops.push([x+R()*0.2,z+R()*0.2,0.6+R()*0.5]);
+  const crops=[]; for(let x=56;x<=70;x+=1.6) for(let z=8;z<=38;z+=0.9) crops.push([x+R()*0.2,z+R()*0.2,0.6+R()*0.5]);
   const geo=new THREE.ConeGeometry(0.28,1,5); geo.translate(0,0.5,0);
   const im=new THREE.InstancedMesh(geo,M.crop,crops.length); const mm=new THREE.Matrix4(), c=new THREE.Color();
   crops.forEach(([x,z,s],i)=>{ mm.compose(new THREE.Vector3(x,0,z),new THREE.Quaternion(),new THREE.Vector3(1,s*1.4,1)); im.setMatrixAt(i,mm); c.setRGB(0.35+R()*0.25,0.42+R()*0.15,0.15); im.setColorAt(i,c); });
   scene.add(im);
-  for(let x=50;x<=68;x+=1.6){ const row=new THREE.Mesh(new THREE.PlaneGeometry(0.9,30.5),M.dirt); row.rotation.x=-Math.PI/2; row.position.set(x,0.01,23); scene.add(row); }
-  // scarecrow
-  sbox(0.12,2.4,0.12,M.wood,59,1.2,24); sbox(1.6,0.1,0.1,M.wood,59,1.9,24); sbox(0.5,0.7,0.3,M.crate,59,1.7,24); sbox(0.34,0.36,0.34,M.hay,59,2.3,24); sbox(0.6,0.06,0.6,M.hay,59,2.5,24);
-  // trough
-  sbox(2,0.6,0.7,M.wood,53,0.3,-13); addBox(53,-13,2,0.7);
+  for(let x=56;x<=70;x+=1.6){ const row=new THREE.Mesh(new THREE.PlaneGeometry(0.9,30.5),M.dirt); row.rotation.x=-Math.PI/2; row.position.set(x,0.01,23); scene.add(row); }
+  sbox(0.12,2.4,0.12,M.wood,63,1.2,24); sbox(1.6,0.1,0.1,M.wood,63,1.9,24); sbox(0.5,0.7,0.3,M.crate,63,1.7,24); sbox(0.34,0.36,0.34,M.hay,63,2.3,24); sbox(0.6,0.06,0.6,M.hay,63,2.5,24);
+  sbox(2,0.6,0.7,M.wood,52,0.3,-13); addBox(52,-13,2,0.7);
 }
 
 // welcome signs and the waystone
@@ -604,13 +688,26 @@ const wayGems=[];
       else showMsg(`It fits the hollow exactly. ${S.placed} of 4 filled. The stone is warm.`);
     }});
 }
-// wrecked car south of town
-{ const g=new THREE.Group(); g.position.set(-6,0,96); g.rotation.y=0.5; scene.add(g);
+// your car, and what's in the trunk
+let trunkLid, headlight;
+{ const g=new THREE.Group(); g.position.set(CAR.x,0,CAR.z); g.rotation.y=CAR.rot; scene.add(g);
   const carMat=lam(0x5a2f2a);
   box(1.9,0.8,4.2,carMat,0,0.65,0,g); box(1.7,0.6,2.2,carMat,0,1.35,-0.2,g);
+  box(1.6,0.5,0.04,lam(0x1a2228),0,1.35,-1.31,g); box(1.6,0.5,0.04,lam(0x1a2228),0,1.35,0.91,g);
   for(const [wx,wz] of [[-.95,1.3],[.95,1.3],[-.95,-1.3],[.95,-1.3]]){ const wh=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.35,0.25,10),M.dark); wh.rotation.z=Math.PI/2; wh.position.set(wx,0.35,wz); g.add(wh); }
-  addCircle(-6,96,2.1);
-  addInteract({x:-6,y:1,z:96,r:3,label:()=>'Your car',act:()=>showMsg('The front end is folded around a tree that wasn\'t there a second before you hit it. It won\'t start. It isn\'t going to start.')});
+  for(const s of [-1,1]) box(0.3,0.15,0.04,new THREE.MeshBasicMaterial({color:0x5a0a08}),s*0.7,0.85,2.11,g);
+  headlight=box(0.3,0.18,0.04,new THREE.MeshBasicMaterial({color:0xfff0c0}),0.65,0.8,-2.11,g); box(0.3,0.18,0.04,M.dark,-0.65,0.8,-2.11,g);
+  const lp=new THREE.Group(); lp.position.set(0,1.05,0.92); g.add(lp); trunkLid=lp; box(1.82,0.06,1.16,carMat,0,0.03,0.58,lp);
+  box(0.9,0.12,0.6,M.wood,0,0.62,-2.4,g); // the tree
+  const tr=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.45,6,8),lam(0x2e241c)); tr.position.set(0,3,-2.7); g.add(tr);
+  addCircle(CAR.x,CAR.z,2.1); addCircle(CAR.x+Math.sin(CAR.rot)*-2.7,CAR.z+Math.cos(CAR.rot)*-2.7,0.5);
+  const tx=CAR.x+Math.sin(CAR.rot)*2.4, tz=CAR.z+Math.cos(CAR.rot)*2.4;
+  addInteract({x:tx,y:1.0,z:tz,r:2.4,label:()=>S.trunkDone?'The trunk is empty':'Open the trunk',act:()=>{
+    if(S.trunkDone){ showMsg('Nothing left but a spare tire with a nail in it.'); return; }
+    S.trunkDone=true; S.hasLight=true; S.batteries+=2; sfx.thunk(); sfx.pick();
+    showMsg('Your flashlight, a pack of spare batteries, and the road atlas. The page for this county shows trees, the highway, and nothing in between. <span style="color:var(--warn)">F for the light, R to swap batteries.</span>',9); }});
+  const fx=CAR.x+Math.sin(CAR.rot)*-0.4+Math.cos(CAR.rot)*1.1, fz=CAR.z+Math.cos(CAR.rot)*-0.4-Math.sin(CAR.rot)*1.1;
+  addInteract({x:fx,y:1.2,z:fz,r:2.6,label:()=>'Driver\'s door',act:()=>showMsg('The front end is folded around a tree that wasn\'t there a second before you hit it. The key turns. Nothing happens. Nothing is going to happen.')});
 }
 
 // ---------- forest locations ----------
@@ -675,7 +772,7 @@ let towerLight;
   const s=radioShack; const dp=Luv(s,0,3.4); F.table(s,0,3.4,1.8,0.8);
   sbox(0.45,0.45,0.9,M.dark,dp.x,0.99,dp.z); const dial=new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.14),new THREE.MeshBasicMaterial({color:0xffa53a})); dial.position.set(dp.x-0.23,1.03,dp.z); dial.rotation.y=-Math.PI/2; scene.add(dial);
   addInteract({x:dp.x-0.25,y:1.0,z:dp.z,r:2.4,enabled:()=>!S.radioDone,label:()=>'Use the receiver',act:()=>{ learn('radio'); openTuner(); }});
-  const wp=Luv(s,-1.5,0.2); const pn=new THREE.Mesh(new THREE.PlaneGeometry(0.4,0.5),M.paper); pn.position.set(s.inner.minX+0.4,1.6,s.inner.minZ+0.02); scene.add(pn);
+  const pn=new THREE.Mesh(new THREE.PlaneGeometry(0.4,0.5),M.paper); pn.position.set(s.inner.minX+0.4,1.6,s.inner.minZ+0.02); scene.add(pn);
   addInteract({x:s.inner.minX+0.4,y:1.6,z:s.inner.minZ+0.02,r:2.4,label:()=>'Read the writing on the wall',act:openNoteFn('Written on the wall in pencil',`Static on every number but one. She's still broadcasting on <b>${RADIO_FREQ.toFixed(1)}</b>. She keeps saying the same thing. Listen to the end.`,'radio',['radio','freq'])});
 }
 let crankMesh;
@@ -699,7 +796,7 @@ function treeOK(x,z){
   if(x>40 && x<100 && z>-26 && z<50) return false;
   for(const c of clearings) if(Math.hypot(x-c.x,z-c.z)<c.r) return false;
   for(const t of tokens) if(Math.hypot(x-t.x,z-t.z)<2) return false;
-  if(Math.hypot(x+6,z-96)<5) return false;
+  if(Math.hypot(x-CAR.x,z-CAR.z)<6) return false;
   return true;
 }
 const treePos=[];
@@ -782,7 +879,7 @@ function makeHumanoid(o){
     const rc=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.02,0.01),lam(0xa01818)); rc.position.set(0,0.2,0.105); head.add(rc); const rc2=rc.clone(); rc2.rotation.z=Math.PI/2; head.add(rc2); }
   g.scale.setScalar(o.scale||1);
   scene.add(g);
-  return {g,pos:g.position,legL,legR,armL,armR,head,armHold:o.armHold??null,phase:Math.random()*6,seed:Math.random()*10,via:null,viaT:0,stuckT:0,lastX:g.position.x,lastZ:g.position.z,sideT:0,sideDir:1,blocked:false};
+  return {g,pos:g.position,legL,legR,armL,armR,head,armHold:o.armHold??null,phase:Math.random()*6,seed:Math.random()*10,via:null,viaT:0,stuckT:0,lastX:g.position.x,lastZ:g.position.z,sideT:0,sideDir:1,blocked:false,stepAcc:0};
 }
 function placeActor(a,x,z){ a.pos.x=x; a.pos.z=z; a.lastX=x; a.lastZ=z; }
 
@@ -804,7 +901,6 @@ const LURK_LINES=[
 ];
 const CHASE_LINES=["There you are.","Don't run. Don't run.","Come here, come here, come here.","Why are you running?"];
 const CLOTHES=[0x3b3f4a,0x5a4636,0x6b2e2e,0x2f4a3a,0x4a4a52,0x7a6a55,0x2a3550,0x6e6a62];
-// The ones you learn to recognize. Each has a look, a way of moving and a voice of its own.
 const KINDS={
   milkman:{title:'The Milkman', desc:'White uniform, white cap, a crate of bottles he never puts down. He makes his rounds every night and rattles his bottles at every door.',
     look:{shirt:0xe6e4da,pants:0xe6e4da,cap:0xe6e4da,tie:0x24345a,belt:0x3a2a1e,carry:'crate',armHold:-0.95,hair:0x5b4a35},
@@ -831,7 +927,6 @@ const KINDS={
     lurk:["Dr. Vance sent me. Doctor's orders: open the door.","This won't hurt a bit.","You look pale. Let me take a look at you.","Time for your medicine."],
     chase:["Hold still!","You need to lie down."], speed:4.6},
 };
-// who comes out on which night (cumulative)
 const ROSTER=[['milkman','bride'],['boxer','twin','twin'],['gentleman','nurse']];
 function makeCreature(x,z,kind){
   const K=kind?KINDS[kind]:null;
@@ -857,7 +952,6 @@ function spawnNight(){
     if(kind==='twin'){ if(lastTwin) c.leader=lastTwin; else lastTwin=c; }
   }
 }
-// a point beside the leader twin, on its right
 const besideLeader=c=>{ const L=c.leader, r=L.g.rotation.y; return {x:L.pos.x+Math.cos(r)*1.15, z:L.pos.z-Math.sin(r)*1.15}; };
 function creatureLine(c,lines){ let t=pick(lines); if(c.K&&c.K.twin) t=t+'” “'+t; return t; }
 function expelFrom(b){ for(const c of creatures){ if(buildingAt(c.pos.x,c.pos.z)===b){ c.pos.x=b.doorOut.x+b.n[0]*1.5; c.pos.z=b.doorOut.z+b.n[1]*1.5; c.via=null; } } }
@@ -869,12 +963,21 @@ function approachPoint(a,b){
   if(along<-b.half+0.4) return {x:b.x-b.n[0]*(b.half+2.5)+tx*side*(b.otherHalf+2.2), z:b.z-b.n[1]*(b.half+2.5)+tz*side*(b.otherHalf+2.2)};
   return {x:b.x+b.n[0]*(b.half+front)+tx*side*(b.otherHalf+2.2), z:b.z+b.n[1]*(b.half+front)+tz*side*(b.otherHalf+2.2)};
 }
+// walk through the doorway in an interior wall if the goal is on the other side
+function partStep(a,b,goal){
+  if(!b||!b.parts.length) return null;
+  const va=vOf(b,a.pos), vg=vOf(b,goal);
+  for(const p of b.parts){ if((va>p.v)!==(vg>p.v)){ const gm=(p.g0+p.g1)/2, near=Luv(b,gm,p.v+(va>p.v?0.9:-0.9)), far=Luv(b,gm,p.v+(va>p.v?-0.9:0.9));
+      if(dist(a.pos,near)<0.7){ a.via=far; a.viaT=0; return far; } return near; } }
+  return null;
+}
 function navTarget(a,goal,canEnterProtected){
   if(a.via){ if(dist(a.pos,a.via)<0.6||a.viaT>3) a.via=null; else return a.via; }
   const cb=buildingAt(a.pos.x,a.pos.z), gb=buildingAt(goal.x,goal.z);
-  if(cb && cb!==gb){ if(dist(a.pos,cb.doorIn)<1.0){ a.via=cb.doorOut; a.viaT=0; return a.via; } return cb.doorIn; }
+  if(cb && cb!==gb){ const ps=partStep(a,cb,cb.doorIn); if(ps) return ps; if(dist(a.pos,cb.doorIn)<1.0){ a.via=cb.doorOut; a.viaT=0; return a.via; } return cb.doorIn; }
   if(gb && gb!==cb){ if(gb.talisman && !canEnterProtected) return approachPoint(a,gb);
     if(dist(a.pos,gb.doorOut)<1.2){ a.via=gb.doorIn; a.viaT=0; return a.via; } return approachPoint(a,gb); }
+  if(cb){ const ps=partStep(a,cb,goal); if(ps) return ps; }
   return goal;
 }
 function updateCreatures(dt,pb,safe,extraC){
@@ -891,46 +994,48 @@ function updateCreatures(dt,pb,safe,extraC){
     const K=c.K||{};
     if(c.leader && (!creatures.includes(c.leader) || c.leader.state==='leave')) c.leader=null;
     const detect=(S.flashlight?42:26)+(S.sprinting?12:0);
-    // first sighting goes in the journal
-    if(c.kindId && !S.seen[c.kindId] && d<20){ S.seen[c.kindId]=true; showMsg(`<span style="color:#e2574c">${K.title}.</span> ${K.desc}`,8); }
-    if(safe){ if(c.state==='chase' || (c.state!=='lurk' && d<40) || K.rounds&&d<60){ if(c.state!=='lurk'){ c.state='lurk'; c.alerted=false;
-        const o=rnd(-2.6,2.6), out=rnd(0.6,3.2)+(pb.porch?2.6:0); c.lurkPt={x:pb.doorOut.x+pb.t[0]*o+pb.n[0]*out, z:pb.doorOut.z+pb.t[1]*o+pb.n[1]*out};
-        if(K.rounds) c.lurkPt={x:pb.doorOut.x+pb.n[0]*(pb.porch?1.2:0.2), z:pb.doorOut.z+pb.n[1]*(pb.porch?1.2:0.2)}; } } }
+    if(c.kindId && !S.seen[c.kindId] && d<20){ S.seen[c.kindId]=true; sfx.sightSting(); showMsg(`<span style="color:#e2574c">${K.title}.</span> ${K.desc}`,8); }
+    if(safe){ if(c.state==='chase' || (c.state!=='lurk' && d<40) || (K.rounds&&d<60)){ if(c.state!=='lurk'){ c.state='lurk'; c.alerted=false;
+        if(K.rounds) c.lurkPt={x:pb.doorOut.x+pb.n[0]*(pb.porch?1.2:0.2), z:pb.doorOut.z+pb.n[1]*(pb.porch?1.2:0.2)};
+        else if(pb.windows.length && Math.random()<0.55){ const w=pick(pb.windows); c.lurkPt={x:w.x,z:w.z}; }
+        else { const o=rnd(-2.6,2.6), out=rnd(0.6,3.2)+(pb.porch?2.6:0); c.lurkPt={x:pb.doorOut.x+pb.t[0]*o+pb.n[0]*out, z:pb.doorOut.z+pb.t[1]*o+pb.n[1]*out}; } } } }
     else if(c.state==='lurk'){ c.state='chase'; }
     else if(c.alerted || d<detect){ if(c.state!=='chase'){ c.state='chase'; if(S.time-S.chaseSting>14 || K.caller){ S.chaseSting=S.time; sfx.sting(); if(d<30 && !c.leader) showSub(creatureLine(c,K.chase||CHASE_LINES)); } } }
     else if(c.state==='chase' && d>75 && !K.relentless){ c.state='wander'; }
     if(c.leader && c.leader.state==='lurk' && c.state!=='lurk' && safe){ c.state='lurk'; }
     if(c.leader && c.state==='lurk' && c.leader.lurkPt) c.lurkPt={x:c.leader.lurkPt.x+pb.t[0]*1.1, z:c.leader.lurkPt.z+pb.t[1]*1.1};
 
-    // the Gentleman calls the others
-    if(K.caller){ c.callT-=dt; if(!safe && d<detect*1.3 && c.callT<=0){ c.callT=30; sfx.ding();
+    if(K.caller){ c.callT-=dt; if(!safe && d<detect*1.3 && c.callT<=0){ c.callT=30; sfx.dingAt(c.pos.x,c.pos.z);
         showSub("Ladies. Gentlemen. We have a guest."); for(const o of creatures) if(o!==c && o.state!=='leave' && dist(o.pos,c.pos)<140) o.alerted=true; } }
-    // sounds that announce them
-    if(K.hum && d<32){ c.humT-=dt; if(c.humT<=0){ c.humT=rnd(7,11); sfx.hum(clamp(1-d/32,0.1,1)); } }
-    if(K.rounds && d<26){ c.clinkT-=dt; if(c.clinkT<=0){ c.clinkT=rnd(1.2,2.6); sfx.clink(clamp(1-d/26,0.1,1)); } }
+    if(K.hum && d<34){ c.humT-=dt; if(c.humT<=0){ c.humT=rnd(7,11); sfx.humAt(c.pos.x,c.pos.z); } }
+    if(K.rounds && d<28){ c.clinkT-=dt; if(c.clinkT<=0){ c.clinkT=rnd(1.2,2.6); sfx.clinkAt(c.pos.x,c.pos.z); } }
 
     const baseSpeed=(K.speed||4.3)+Math.min(S.day,6)*0.08;
     if(c.state==='chase'){
       nearestChase=Math.min(nearestChase,d);
+      let spd=baseSpeed;
       if(K.burst){ c.burstT+=dt; const ph=c.burstT%3.6;
-        if(ph<2.2) moveActor(c,navTarget(c,S.pos,false),7.0,dt,extraC);
-        else { c.g.rotation.y=Math.atan2(S.pos.x-c.pos.x,S.pos.z-c.pos.z); idlePose(c,dt); c.pos.y=Math.abs(Math.sin(S.time*9))*0.08; const s=Math.sin(S.time*9)*0.25; c.legL.rotation.x=s; c.legR.rotation.x=-s; } }
-      else { const goal=(c.leader && d>6)?besideLeader(c):S.pos; moveActor(c,navTarget(c,goal,false),c.leader?baseSpeed+0.5:baseSpeed,dt,extraC); }
+        if(ph<2.2){ spd=7.0; moveActor(c,navTarget(c,S.pos,false),spd,dt,extraC); }
+        else { spd=0; c.g.rotation.y=Math.atan2(S.pos.x-c.pos.x,S.pos.z-c.pos.z); idlePose(c,dt); c.pos.y=Math.abs(Math.sin(S.time*9))*0.08; const s=Math.sin(S.time*9)*0.25; c.legL.rotation.x=s; c.legR.rotation.x=-s; } }
+      else { const goal=(c.leader && d>6)?besideLeader(c):S.pos; spd=c.leader?baseSpeed+0.5:baseSpeed; moveActor(c,navTarget(c,goal,false),spd,dt,extraC); }
+      if(d<26 && spd>0){ c.stepAcc+=spd*dt; if(c.stepAcc>1.25){ c.stepAcc=0; sfx.stepAt(c.pos.x,c.pos.z); } }
       if(d<1.05 && !safe){ die(); return {nearest,nearestChase}; }
     } else if(c.state==='lurk'){
       const dl=dist(c.pos,c.lurkPt);
       if(dl>0.5) moveActor(c,navTarget(c,c.lurkPt,false),K.rounds?2.2:1.6,dt,extraC);
-      else { c.g.rotation.y=Math.atan2(S.pos.x-c.pos.x,S.pos.z-c.pos.z); idlePose(c,dt,true); if(K.burst){ c.pos.y=Math.abs(Math.sin(S.time*7))*0.06; } }
+      else { c.g.rotation.y=Math.atan2(S.pos.x-c.pos.x,S.pos.z-c.pos.z); idlePose(c,dt,true); if(K.burst) c.pos.y=Math.abs(Math.sin(S.time*7))*0.06; }
       if(!c.leader){ c.lineT-=dt; if(c.lineT<=0){ c.lineT=rnd(9,16); if(d<16){ showSub(creatureLine(c,K.lurk&&Math.random()<0.8?K.lurk:LURK_LINES)); sfx.whisperBurst(); } } }
-      c.knockT-=dt; if(c.knockT<=0){ c.knockT=K.rounds?rnd(5,8):rnd(7,14); if(dist(c.pos,pb.doorOut)<5.5 && !pb.door.open){ if(K.rounds) sfx.rattle(clamp(1-d/18,0.2,1)); else sfx.knock(clamp(1-d/18,0.15,1)); } }
+      c.knockT-=dt; if(c.knockT<=0){ c.knockT=K.rounds?rnd(5,8):rnd(7,14);
+        if(dist(c.pos,pb.doorOut)<5.5 && !pb.door.open){ if(K.rounds) sfx.rattleAt(c.pos.x,c.pos.z); else sfx.knockAt(pb.doorC.x,pb.doorC.z); }
+        else if(dl<0.6) sfx.tapAt(c.pos.x,c.pos.z); }
     } else {
       c.tT-=dt;
       if(c.leader){ moveActor(c,navTarget(c,besideLeader(c),false),2.6,dt,extraC); }
-      else if(K.rounds){ // the Milkman walks his route, door to door
+      else if(K.rounds){
         const route=buildings.filter(b=>Math.abs(b.x)<100&&Math.abs(b.z)<100);
         const rb=route[c.roundI%route.length]; const stop={x:rb.doorOut.x+rb.n[0]*(rb.porch?1.2:0.2), z:rb.doorOut.z+rb.n[1]*(rb.porch?1.2:0.2)};
         if(dist(c.pos,stop)<1.2){ c.g.rotation.y=Math.atan2(-rb.n[0],-rb.n[1]); idlePose(c,dt);
-          if(c.waitStop!==c.roundI){ c.waitStop=c.roundI; c.tT=rnd(3,5); if(!rb.door.open) sfx.rattle(clamp(1-d/22,0.05,1)); if(d<18) showSub(pick(K.lurk)); }
+          if(c.waitStop!==c.roundI){ c.waitStop=c.roundI; c.tT=rnd(3,5); if(!rb.door.open) sfx.rattleAt(c.pos.x,c.pos.z); if(d<18) showSub(pick(K.lurk)); }
           else if(c.tT<=0) c.roundI++; }
         else moveActor(c,navTarget(c,stop,false),2.2,dt,extraC);
       }
@@ -942,11 +1047,14 @@ function updateCreatures(dt,pb,safe,extraC){
   }
   return {nearest,nearestChase};
 }
+function unstick(a){
+  for(let i=0;i<20;i++){ const ang=Math.random()*Math.PI*2, r=rnd(1,2.5), p={x:a.pos.x+Math.cos(ang)*r, z:a.pos.z+Math.sin(ang)*r};
+    if(buildingAt(p.x,p.z)===buildingAt(a.pos.x,a.pos.z) && clearAt(p.x,p.z,0.4)){ a.via=p; a.viaT=0; return; } }
+}
 function moveActor(a,t,speed,dt,extra){
   a.viaT+=dt; a.blocked=false;
   let dx=t.x-a.pos.x, dz=t.z-a.pos.z; const l=Math.hypot(dx,dz);
   if(l<0.05){ idlePose(a,dt); return; }
-  // doors: people open them, the things outside open only the unprotected ones
   for(const d of doors){ if(d.open) continue; if((t===d.b.doorIn||t===d.b.doorOut) && dist(a.pos,d.c)<2.1){
     if(a.kind==='npc') openDoor(d,true); else if(!d.b.talisman) openDoor(d,false); } }
   dx/=l; dz/=l;
@@ -976,121 +1084,155 @@ function idlePose(a,dt,creepy){ a.legL.rotation.x*=0.9; a.legR.rotation.x*=0.9;
 const PLACES = {
   station:{b:'station'}, diner:{b:'diner'}, clinic:{b:'clinic'}, bar:{b:'bar'}, booneHouse:{b:'booneHouse'}, farmhouse:{b:'farmhouse'},
   patrol:{points:[{x:2.5,z:-62},{x:2.5,z:-30},{x:-2.5,z:-2},{x:2.5,z:24},{x:-2.5,z:68},{x:2.5,z:24},{x:-2.5,z:-2},{x:2.5,z:-30}]},
-  chapelYard:{x:-6.8,z:52,r:3}, field:{x:59,z:22,r:7}, yard:{x:53,z:2,r:3.5}, farmGate:{x:50,z:-6,r:2.5}
+  chapelYard:{x:-6.8,z:52,r:3}, field:{x:62,z:22,r:6}, yard:{x:52,z:4,r:3.5}
 };
 const has = k => !!S.know[k];
+const DUSK_BARKS=["You need to get inside. Now.","It's getting dark. Go on, get in somewhere.","Sun's going. Don't be out here when it does.","Find a stone and stay behind it. Hurry."];
 const PEOPLE = [
   { id:'dale', name:'Dale Boone', role:'Sheriff', look:{shirt:0x6b5a3a,pants:0x3a3a40,skin:0xc79a7a,hair:0x3a2a20,hat:'sheriff',badge:true,scale:1.05}, home:'booneHouse', work:'patrol', speed:1.6, offset:0,
     intro:["Easy there. You came in off the road? Yeah. Everybody does, sooner or later.","Dale Boone. I was sheriff of a county I can't find on a map anymore, so I suppose I'm sheriff of this.","Two rules matter here. Be behind a door with a stone hanging by it when the sun goes down. And don't let anybody in after dark, no matter whose voice it is."],
+    hello:["Afternoon.","Keep your eyes open.","You doing alright?"],
     topics:[
       {learn:'hal', lines:["You're going to ask me how to get out. Everybody does on the second day.","Honest answer is I don't know. But there was a man, Hal Cobb. Lived in the house across the road from the Lantern.","Hal was sure there was a way. Spent every daylight hour out in those trees with a notebook.","One night he didn't come in. That was about a month back. Nobody's hung a stone in his place since. Go look, if you want. I couldn't."]},
       {when:()=>S.hasMap, lines:["You found something in Hal's place. I can see it on you.","Whatever it is, don't follow it into the trees past four in the afternoon. I mean that."]},
     ],
-    small:["One of them dresses like a milkman. Walks the whole street every night and rattles his bottles at every door. Don't take a delivery.","The road just brings you back. I drove it for six hours once. Six hours, and there was the diner.","They can see a flashlight a long way off. Use it when you have to, not because you can.","I walk this road twice a day. Keeps me from thinking."],
+    things:["Most of them look like anybody. That's the trick of it. The grin's too wide, that's all.","One dresses like a milkman. Walks the whole street every night and rattles his bottles at every door. Don't take a delivery."],
+    others:["Marisol keeps this town fed. Keeps me sane, mostly.","Doc Vance patched up half this town at one point or another. Doesn't like being thanked.","Abel Tanner's the strongest man I've ever met and the gentlest. Don't tell him I said so.","Cormac pours, Nessa counts. That bar is the closest thing we've got to a town hall.","Eli's a good kid. He goes places he shouldn't. So did I."],
+    favor:{label:'Ask for supplies', once:true, lines:["Here. Batteries, out of the evidence locker. Don't ask what the evidence was.","Two packs. Save them for the dark stretches, not the town."], give:()=>{ S.batteries+=2; showMsg('Dale gives you two batteries.'); }},
+    small:["The road just brings you back. I drove it for six hours once. Six hours, and there was the diner.","They can see a flashlight a long way off. Use it when you have to, not because you can.","I walk this road twice a day. Keeps me from thinking."],
     night:["Stay off the porch. Stay away from the windows. Morning comes. It always has so far.","Don't answer it. Whatever it says, don't answer it."] },
   { id:'marisol', name:'Marisol Boone', role:'Runs the diner', look:{shirt:0x7a3b46,pants:0x2a2a30,skin:0xb98a68,hair:0x1e1612,apron:0xd9d2c0,dress:0x5a2e36,longHair:true}, home:'booneHouse', work:'diner', speed:1.4, offset:0.2,
     intro:["You found my note, then. Good. Sit down. There's coffee. It doesn't taste like anything anymore, but it's hot.","I'm Marisol. Dale's my husband. The tall boy throwing rocks at the chapel is Eli. He's ours too."],
+    hello:["Coffee's on.","Sit down a minute.","There you are."],
     topics:[
       {learn:'hal', when:()=>!has('hal'), lines:["If you're going to ask about getting out, ask Dale about Hal Cobb.","Hal's the only one of us who ever got anywhere. Or anywhere we know about."]},
       {when:()=>has('waystone') && !has('exit'), lines:["Hal used to sit at that counter and talk about the stone by the north sign.","I thought it was grief talking. Maybe it was. Grief can still be right."]},
     ],
+    things:["One of them wears a wedding dress. She hums. When you hear humming, you go inside. You don't finish your sentence.","They know our names. They use our voices. If it sounds like me at your door, it isn't me."],
+    others:["Dale won't say it, but he walks that road hoping it'll be different one day.","Imogen Vance is the smartest person in this town and the loneliest. Bring her something sometime.","Ruth Tanner and I trade bread for eggs. It's the most normal thing I do all week.","Cormac's harmless. Nessa's the one you want on your side."],
+    favor:{label:'Ask for a coffee', daily:true, lines:["Black. It's the only way it comes now.","Drink it while it's hot. It'll keep you on your feet."], give:()=>{ S.coffee=true; S.stamina=1; showMsg('The coffee is scalding and tastes of nothing. You feel like you could run for a long time. (Running tires you more slowly until dawn.)'); }},
     small:["Whatever you hear at the door at night, it isn't who it says it is.","Eat something. You look like the road chewed you up.","I wrote that note for the next one through. I keep writing new copies. People keep coming."],
     night:["Sit by the fire. It helps, a little.","Eli, away from the window. Now."] },
   { id:'eli', name:'Eli Boone', role:"The Sheriff's son", look:{shirt:0x3c5a7a,pants:0x34363c,skin:0xc79a7a,hair:0x2a1e16,scale:0.92}, home:'booneHouse', work:'chapelYard', speed:1.8, offset:0.4,
     intro:["You're new. Did you crash too? We hit a tree. Dad says the tree wasn't there before."],
+    hello:["Hey.","Oh. Hi.","You're still alive. Cool."],
     topics:[
       {learn:'radio', lines:["Don't tell my mom, but I go out to the radio tower sometimes. It's southwest, way out in the trees. There's a little shack at the bottom.","The radio in there picks up a lady talking. I can never find her twice. Hal wrote something on the wall about her, I think.","You can see the red light on top from the road at night, if the fog's low."]},
     ],
-    small:["There's one dressed like a boxer. He stops and starts, like he's waiting for a bell. You can't outrun him when he goes, but you can when he stops.","I'm fifteen. I've been fifteen for a while now, I think.","Pip says the night people know his name. I told him to stop listening.","Dad thinks I don't know about the guns in the cabinet. I know."],
+    things:["There's one dressed like a boxer. He stops and starts, like he's waiting for a bell. You can't outrun him when he goes. You can when he stops."],
+    others:["Dad acts like he's not scared. He is.","Pip follows me around. It's annoying. It's fine.","Nessa's the only one who talks to me like I'm not a kid.","Dr. Vance stitched my hand once. Didn't even ask how I did it."],
+    favor:{label:'Ask what he knows about the woods', once:true, lines:["Okay. Real tip. Listen for the crickets at night.","When the crickets go quiet, one of them is close. That's how I know when to run."]},
+    small:["I'm fifteen. I've been fifteen for a while now, I think.","Pip says the night people know his name. I told him to stop listening.","Dad thinks I don't know about the guns in the rack. I know."],
     night:["Do you think they used to be people?","I counted eleven of them last night. Mom says don't count."] },
   { id:'vance', name:'Dr. Imogen Vance', role:'Surgeon', look:{shirt:0x4a5a6a,pants:0x2a2a30,skin:0xe2c4ae,hair:0x9a9188,coat:0xe6e6e0,glasses:true,longHair:true}, home:'clinic', work:'clinic', speed:1.4, offset:0.1,
     intro:["I was a surgeon, before. I suppose I still am. People here still cut themselves and fall off ladders.","Whatever they do to you out there at night, there's nothing I can stitch. So please don't make me try."],
+    hello:["Hello.","Are you hurt?","Sit, if you need to."],
     topics:[
       {learn:'well', lines:["Hal came in once with rope burns across both palms. Deep ones.","He said he'd been at the old well in the southeast, after dark. He said it only gives at night.","I told him nothing is worth that. He laughed at me. I liked Hal."]},
     ],
-    small:["One of them wears a nurse's uniform. She says my name at the door. Says I sent her. I have never once had a nurse.","Sleep where the stone hangs. Sleep is the only medicine I have left that works every time.","Nobody here gets sick. Nobody gets old, that I can tell. I've stopped writing it down.","If you're hurt, come in. If you're scared, come in anyway."],
+    things:["One of them wears a nurse's uniform. She says my name at the door. Says I sent her. I have never once had a nurse.","They don't bleed. I watched one catch its arm on a nail. The cut just closed."],
+    others:["Dale carries this town on his back. One day it will break him.","The Tanner children are the healthiest children I have ever examined. That frightens me more than anything out there.","Cormac drinks less than he pretends to. Nessa drinks more."],
+    favor:{label:'Ask her to look you over', daily:true, lines:()=>S.deaths>0?["Those marks across your chest. They should have killed you.","Something carried you back to that diner. I don't want to know what it wants with you. Rest."]:["You're fine. Scared and tired, which is the correct way to be here.","Here. Sit. Breathe for a minute."], give:()=>{ S.stamina=1; S.tired=false; }},
+    small:["Sleep where the stone hangs. Sleep is the only medicine I have left that works every time.","Nobody here gets sick. Nobody gets old, that I can tell. I've stopped writing it down.","If you're hurt, come in. If you're scared, come in anyway."],
     night:["You can take the cot. I don't sleep much.","They used to scratch at that window. I moved the bed."] },
   { id:'abel', name:'Abel Tanner', role:'Farmer', look:{shirt:0x8a6a4a,pants:0x3a4a6a,skin:0xb5876a,hair:0x6a4a2a,hat:'straw',overalls:0x3a4a6a,beard:true,scale:1.06}, home:'farmhouse', work:'field', speed:1.4, offset:0,
     intro:["Abel Tanner. That's Ruth up by the house, and the two terrors are June and Pip.","Ground out here grows anything you put in it. Quick, too. Too quick. I try not to think about it."],
+    hello:["Afternoon.","Mind the corn.","Hot one."],
     topics:[
       {learn:'waystone', lines:["You know that stone up by the north sign? Hal used to stand at it and talk to it.","Said it had four holes in the top like it was waiting on something. Said the town took four things and hid them.","I figured he'd been in the trees too long. Now he's in them for good, so maybe I was right. Or maybe I wasn't."]},
     ],
+    things:["The fence doesn't stop them. They walk right up to the porch.","Saw one in a top hat once, standing out in the corn. Just watching the house. Polite as you like."],
+    others:["Ruth's the reason we're alive. I mean that plain.","Dale's alright. Thinks too much.","That Reilly girl could run this town if she wanted to. She doesn't want to."],
+    favor:{label:'Ask if he can spare anything', once:true, lines:["There's a box of batteries in the barn, up on the crates. Take it.","Don't go in there after four. No stone in that barn."]},
     small:["Don't you sleep in that barn. No stone in it. We lost the dog that way.","Corn's taller than it was yesterday. It's always taller than it was yesterday.","Ruth does the thinking. I do the lifting. It works out."],
     night:["Kids are down. Keep your voice low.","Fence doesn't stop them. Never did. It just makes me feel better."] },
   { id:'ruth', name:'Ruth Tanner', role:"Abel's wife", look:{shirt:0x6a7a5a,pants:0x3a3328,skin:0xd8b49a,hair:0x8a5a2a,dress:0x6a5a3a,longHair:true}, home:'farmhouse', work:'yard', speed:1.4, offset:0.3,
     intro:["If you get hungry, come out to the farm. There's always more than we can eat.","Don't mind the kids. They talk to everyone. I've stopped being able to stop them."],
+    hello:["Hello, dear.","Hungry?","You look tired."],
     topics:[
       {learn:'stones', lines:["Hal brought June a drawing once. Five standing stones, out northeast, each with a little picture carved on it.","He said they wake up if you touch them in the right order. He said he'd tell her the order when he got back.","She still keeps the drawing under her pillow."]},
     ],
-    small:["The bride comes up to the farmhouse most nights. She doesn't run. She doesn't have to. Once she's seen you, she just keeps coming until morning.","June's nine. Pip's six. They were eight and five when we came.","I keep a list of everyone who's come through. Some of them, I cross off.","There's bread in the farmhouse. Help yourself."],
+    things:["The bride comes up to the farmhouse most nights. She doesn't run. She doesn't have to. Once she's seen you, she just keeps coming until morning."],
+    others:["June's sharp. Pip's soft. They'll both be fine, if this place lets them grow up.","Marisol's the only one who can make that diner feel like somewhere.","Dr. Vance looks at my kids like she's waiting for something to happen. I don't like it."],
+    favor:{label:'Ask for something to eat', daily:true, lines:["Here. Bread, still warm. Eat it on the way, you'll walk farther for it."], give:()=>{ S.fed=true; S.stamina=1; showMsg('Warm bread. You get your breath back faster until dawn.'); }},
+    small:["June's nine. Pip's six. They were eight and five when we came.","I keep a list of everyone who's come through. Some of them, I cross off.","There's always bread. Don't be shy."],
     night:["Hush. Let them knock. They get tired of it."] },
   { id:'june', name:'June Tanner', role:'Farm kid', look:{shirt:0xb05a5a,pants:0x3a3a40,skin:0xd8b49a,hair:0x8a5a2a,dress:0x7a4a6a,longHair:true,scale:0.72}, home:'farmhouse', work:'yard', speed:1.9, offset:0.5,
     intro:["Hi! Are you staying? Most people stay. Everybody stays."],
+    hello:["Hi!","Wanna see a frog? I lost it.","Hiiiii."],
     topics:[
       {learn:'bus', lines:["Pip and me found a yellow bus in the woods. Northwest. We weren't supposed to go that far.","There's little wooden people out there around it. They hide in the trees.","I think the bus wants them back. That's what it feels like. Don't tell Mom we went."]},
     ],
-    small:["There's two ladies in yellow sweaters who look exactly the same. They wave at me at the same time. Pip hides.","Mr. Cobb drew me a picture of rocks. He's coming back to finish it.","Pip's scared of the scarecrow. I'm not.","Do you have any candy? You don't. Nobody does."],
+    things:["There's two ladies in yellow sweaters who look exactly the same. They wave at me at the same time. Pip hides."],
+    others:["Pip is scared of everything. I'm only scared of two things.","Eli let me hold his compass once.","Mr. Reilly does magic tricks with coins. They're bad."],
+    favor:{label:'Play a game with June', daily:true, lines:["Okay! I spy with my little eye something green.","It's the trees. It's always the trees. You're bad at this. Again tomorrow."]},
+    small:["Mr. Cobb drew me a picture of rocks. He's coming back to finish it.","Pip's scared of the scarecrow. I'm not.","Do you have any candy? You don't. Nobody does."],
     night:["Is it them? Is it knocking?","I'm not scared. Pip is."] },
   { id:'pip', name:'Pip Tanner', role:'Farm kid', look:{shirt:0x4a6a9a,pants:0x3a4a6a,skin:0xd8b49a,hair:0xb07a3a,overalls:0x3a4a6a,scale:0.6}, home:'farmhouse', work:'yard', speed:2.0, offset:0.5,
     intro:["I'm Pip. I'm not allowed past the fence."],
+    hello:["Hi.","...","Are you a night person?"],
     topics:[],
-    small:["The lady at the window at night sings to me. Mama says don't listen.","June says the bus is ours now. It's not.","I'm six and a half."],
+    things:["The lady at the window at night sings to me. Mama says don't listen.","There's a man with a tall hat. He waves at me."],
+    others:["June is bossy.","Eli can whistle with his fingers. I can't."],
+    small:["June says the bus is ours now. It's not.","I'm six and a half."],
     night:["They know my name. How do they know my name?"] },
   { id:'cormac', name:'Cormac Reilly', role:'Barkeeper', look:{shirt:0x5a6a4a,pants:0x2a2a30,skin:0xe0b49a,hair:0x8a3a1e,apron:0x3a2a1e,beard:true,scale:1.08}, home:'bar', work:'bar', speed:1.3, offset:0,
     intro:["Welcome to the Lantern. Only bar in town. Only bar in the world, near as anyone can tell.","First one's free. So's every one after that. Money doesn't do much here."],
+    hello:["There they are!","Pull up a stool.","Evening. Or is it? Can never tell in here."],
     topics:[
       {learn:'waystone', when:()=>!has('waystone'), lines:["Hal sat right where you're standing and told me there were four things out in the trees that the town keeps for itself.","Bring them to the stone up by the north sign, he said, and the road lets you go.","I told him he was drunk. He was. Didn't make him wrong."]},
       {when:()=>S.relics.length>0, lines:["What's that you've got in your pocket? It's humming. I can hear it from here.","Hal said the town's things would feel like that. Like they wanted to be somewhere."]},
     ],
-    small:["There's a fella out there in a top hat. Polite as you like. When he spots you and tips that hat, the rest of them come running. If you see him, don't let him see you.","Nessa keeps the books. Nothing to keep, but she keeps them.","I had a bar in Galway once. Or I think I did.","They don't come in here. I've never once asked why."],
+    things:["There's a fella out there in a top hat. Polite as you like. When he spots you and tips that hat, the rest of them come running. If you see him, don't let him see you."],
+    others:["Dale's a good man in a job that doesn't exist anymore.","Vance came in once, had one drink, cried, never came back. Respect to her.","Abel Tanner could lift this bar. Ruth could lift Abel."],
+    favor:{label:'Ask for a drink', daily:true, lines:["On the house. Everything's on the house. Sláinte.","Steadies the hands. Don't make a habit of it."]},
+    small:["Nessa keeps the books. Nothing to keep, but she keeps them.","I had a bar in Galway once. Or I think I did.","They don't come in here. I've never once asked why."],
     night:["Pull up a stool. Nobody's leaving.","Hear that? Don't. Just don't."] },
   { id:'nessa', name:'Nessa Reilly', role:"Cormac's daughter", look:{shirt:0x2e3a4a,pants:0x2a2a30,skin:0xe0b49a,hair:0x7a2e14,longHair:true}, home:'bar', work:'bar', speed:1.5, offset:0.2,
     intro:["Dad'll talk your ear off and tell you nothing. If you want a straight answer, ask me."],
+    hello:["Hey.","Dad's in a mood.","What do you need?"],
     topics:[
       {learn:'stoneOrder', lines:["Hal left a napkin here the last night he came in. Five words on it, in order.","Eye. Hand. Moon. Tooth. Door.","I kept it. I don't know why. Here, read it yourself."]},
     ],
+    things:["The milkman, the bride, the boxer, the twins, the man in the hat, the nurse. I gave them names. It helps. Everything else out there just smiles."],
+    others:["Dad tells everyone he had a bar in Galway. It was Boston.","Eli's sweet. Tell him I said that and I'll deny it.","The Boones are the closest thing this town has to a government."],
+    favor:{label:'Ask her for supplies', once:true, lines:["There's batteries behind the bar. Take two. Dad won't notice."], give:()=>{ S.batteries+=2; showMsg('Nessa slides two batteries across the bar.'); }},
     small:["I was supposed to start university in September. Whichever September it is.","The Lantern's the warmest room in town. Come back before dark.","Dad pretends he's not scared. It's for me. I let him."],
     night:["Sit near the fire. Not near the door."] },
 ];
 const npcs=[];
-function clearAt(x,z,r){
-  for(const b of boxes){ const cx=clamp(x,b.minX,b.maxX), cz=clamp(z,b.minZ,b.maxZ); if((x-cx)**2+(z-cz)**2<r*r) return false; }
-  const cell=grid.get(Math.floor(x/CELL)+','+Math.floor(z/CELL)); if(cell) for(const c of cell) if(Math.hypot(x-c.x,z-c.z)<r+c.r) return false;
-  return true;
-}
 function placePoint(place){
   const P=PLACES[place];
   if(P.points) return null;
   let p;
   for(let i=0;i<30;i++){
-    if(P.b){ const b=B[P.b], n=b.inner; p={x:rnd(n.minX+0.8,n.maxX-0.8), z:rnd(n.minZ+0.8,n.maxZ-0.8)}; if(dist(p,b.doorIn)<1.2) continue; }
+    if(P.b){ const b=B[P.b], n=b.inner; p={x:rnd(n.minX+0.8,n.maxX-0.8), z:rnd(n.minZ+0.8,n.maxZ-0.8)}; if(dist(p,b.doorIn)<1.2) continue; if(b.vMax && vOf(b,p)>b.vMax) continue; }
     else { const a=Math.random()*Math.PI*2, r=Math.random()*P.r; p={x:P.x+Math.cos(a)*r, z:P.z+Math.sin(a)*r}; }
     if(clearAt(p.x,p.z,0.9)) return p;
   }
   return P.b ? {x:B[P.b].doorIn.x, z:B[P.b].doorIn.z} : p;
 }
-function unstick(a){ // pick a nearby open spot and walk there first
-  for(let i=0;i<20;i++){ const ang=Math.random()*Math.PI*2, r=rnd(1,2.5), p={x:a.pos.x+Math.cos(ang)*r, z:a.pos.z+Math.sin(ang)*r};
-    if(buildingAt(p.x,p.z)===buildingAt(a.pos.x,a.pos.z) && clearAt(p.x,p.z,0.4)){ a.via=p; a.viaT=0; return; } }
-}
+function desiredPlace(a){ const h=S.hour, off=a.def.offset; return (h>=7.4+off && h<17.6+off) ? a.def.work : a.def.home; }
 for(const def of PEOPLE){
-  const a=makeHumanoid(def.look); a.kind='npc'; a.def=def; a.met=false; a.talking=false; a.place=null; a.goal=null; a.waitT=0; a.patrolI=0;
+  const a=makeHumanoid(def.look); a.kind='npc'; a.def=def; a.met=false; a.talking=false; a.place=null; a.goal=null; a.waitT=0; a.patrolI=0; a.barkT=rnd(5,20); a.otherI=0; a.favorDay=0; a.favorDone=false; a.askedThings=false;
   for(const t of def.topics) t.done=false;
-  const p=placePoint(def.home); placeActor(a,p.x,p.z);
+  const want=desiredPlace(a); let p=placePoint(want); if(!p) p=PLACES[want].points[0]; placeActor(a,p.x,p.z);
   a.it=addInteract({x:p.x,y:1.5*(def.look.scale||1),z:p.z,r:2.6,
     label:()=>`Talk to ${def.name}`+(hasNewTopic(a)?' <em>· has something to tell you</em>':''),
     act:()=>startTalk(a)});
   npcs.push(a);
 }
-function hasNewTopic(a){ if(!a.met) return false; return a.def.topics.some(t=>!t.done && (!t.when||t.when()) && (t.learn?!has(t.learn):true)); }
-function desiredPlace(a){ const h=S.hour, off=a.def.offset; return (h>=7.4+off && h<17.6+off) ? a.def.work : a.def.home; }
-function updateNPCs(dt,extraN){
+function pendingTopic(a){ return a.def.topics.find(t=>!t.done && (!t.when||t.when())); }
+function favorAvailable(a){ const f=a.def.favor; if(!f) return false; if(f.once && a.favorDone) return false; if(f.daily && a.favorDay===S.day) return false; return true; }
+function hasNewTopic(a){ if(!a.met) return false; const t=pendingTopic(a); return !!(t && (!t.learn||!has(t.learn))); }
+function showSay(name,text){ $('sub').className='say'; $('sub').innerHTML=`<b>${name}</b>“${text}”`; $('sub').style.opacity=1; subT=4; }
+function updateNPCs(dt,extraN,outsideAtDusk){
   for(const a of npcs){
     a.it.x=a.pos.x; a.it.z=a.pos.z;
-    if(a.talking){ a.g.rotation.y=Math.atan2(S.pos.x-a.pos.x,S.pos.z-a.pos.z); idlePose(a,dt); continue; }
+    const dP=dist(a.pos,S.pos);
+    if(a.talking){ a.g.rotation.y=Math.atan2(S.pos.x-a.pos.x,S.pos.z-a.pos.z); idlePose(a,dt); a.head.rotation.y*=0.8; continue; }
     const want=desiredPlace(a), P=PLACES[want];
     if(a.place!==want){ a.place=want; a.goal=P.points?P.points[a.patrolI%P.points.length]:placePoint(want); a.waitT=0; }
-    // after dark, everyone is home
     if(isNight() && a.place===a.def.home && buildingAt(a.pos.x,a.pos.z)!==B[a.def.home]){ const p=placePoint(a.def.home); placeActor(a,p.x,p.z); a.goal=p; a.via=null; }
     const d=dist(a.pos,a.goal);
     const hurry=(S.hour>=17.6&&S.hour<20)?1.7:1;
@@ -1098,23 +1240,58 @@ function updateNPCs(dt,extraN){
       idlePose(a,dt); a.waitT-=dt;
       if(a.waitT<=0){ a.waitT=P.points?rnd(3,6):rnd(6,14); if(P.points){ a.patrolI++; a.goal=P.points[a.patrolI%P.points.length]; } else a.goal=placePoint(a.place); a.blocked=false; }
     } else moveActor(a,navTarget(a,a.goal,true),a.def.speed*hurry,dt,extraN);
+    // look at you when you're close
+    let hy=0; if(dP<7){ let rel=Math.atan2(S.pos.x-a.pos.x,S.pos.z-a.pos.z)-a.g.rotation.y; rel=((rel+Math.PI*3)%(Math.PI*2))-Math.PI; hy=clamp(rel,-1.1,1.1); }
+    a.head.rotation.y=lerp(a.head.rotation.y,hy,dt*4);
+    // a word in passing
+    a.barkT-=dt;
+    if(a.barkT<=0 && dP<6 && !S.ui && !S.dead){
+      const nm=a.def.name.startsWith('Dr.')?'Dr. Vance':a.def.name.split(' ')[0];
+      if(outsideAtDusk){ a.barkT=rnd(14,22); showSay(nm,pick(DUSK_BARKS)); }
+      else if(a.met){ a.barkT=rnd(45,90); showSay(nm,pick(isNight()&&a.def.night?a.def.night:a.def.hello)); }
+    }
   }
 }
+// ---------- conversations ----------
 let talk=null;
 function startTalk(a){
-  const d=a.def; let lines, learnKey=null;
-  if(!a.met){ a.met=true; lines=d.intro; }
-  else {
-    const tp=d.topics.find(t=>!t.done && (!t.when||t.when()));
-    if(tp){ tp.done=true; lines=tp.lines; learnKey=tp.learn||null; S.heard.push({who:d.name,text:tp.lines.join(' ')}); }
-    else lines=[pick(isNight()&&d.night?d.night:d.small)];
-  }
-  a.talking=true; talk={a,lines,i:0,learnKey}; S.ui='dialog';
+  const d=a.def; let lines;
+  if(!a.met){ a.met=true; lines=d.intro.slice(); }
+  else if(S.hour>=17.5 && S.hour<20 && !buildingAt(S.pos.x,S.pos.z)) lines=[pick(DUSK_BARKS)];
+  else lines=[pick(isNight()&&d.night?d.night:d.hello)];
+  a.talking=true; talk={a,lines,i:0,mode:'lines',learnQ:[]}; S.ui='dialog';
   $('dlgName').textContent=d.name; $('dlgRole').textContent=d.role; renderTalk(); $('dialog').hidden=false; sfx.pick();
 }
-function renderTalk(){ $('dlgText').textContent=talk.lines[talk.i]; $('dlgMore').textContent = talk.i<talk.lines.length-1 ? 'E to continue' : 'E to finish'; }
-function advanceTalk(){ if(!talk) return; talk.i++; if(talk.i<talk.lines.length){ renderTalk(); return; } endTalk(); }
-function endTalk(){ if(!talk) return; const t=talk; talk=null; t.a.talking=false; $('dialog').hidden=true; if(S.ui==='dialog') S.ui=null; if(t.learnKey) learn(t.learnKey); }
+function talkOptions(a){
+  const d=a.def, o=[];
+  const tp=pendingTopic(a);
+  o.push({label:'Ask about getting out of here', fresh:!!(tp&&(!tp.learn||!has(tp.learn))), run:()=>{
+    if(tp){ tp.done=true; if(tp.learn) talk.learnQ.push(tp.learn); S.heard.push({who:d.name,text:tp.lines.join(' ')}); return tp.lines; }
+    return [pick(["I've told you everything I know about that. I wish it were more.","That's all I've got. Ask around. Somebody knows something.","I don't know any more than I've said. I'm sorry."])]; }});
+  o.push({label:'Ask about the things that come at night', fresh:!a.askedThings, run:()=>{ if(!a.askedThings){ a.askedThings=true; S.heard.push({who:d.name,text:d.things.join(' ')}); return d.things; } return [pick(d.things)]; }});
+  o.push({label:'Ask about the others in town', run:()=>[d.others[a.otherI++%d.others.length]]});
+  if(favorAvailable(a)) o.push({label:d.favor.label, fresh:true, run:()=>{ a.favorDone=true; a.favorDay=S.day; const L=typeof d.favor.lines==='function'?d.favor.lines():d.favor.lines; talk.after=d.favor.give||null; return L; }});
+  o.push({label:'Just talk', run:()=>[pick(isNight()&&d.night?d.night:d.small)]});
+  o.push({label:'Goodbye', run:null});
+  return o;
+}
+function renderTalk(){
+  const opts=$('dlgOpts');
+  if(talk.mode==='lines'){ $('dlgText').textContent=talk.lines[talk.i]; opts.innerHTML=''; $('dlgMore').textContent='E to continue'; }
+  else { talk.opts=talkOptions(talk.a); $('dlgText').textContent=''; $('dlgText').hidden=true;
+    opts.innerHTML=talk.opts.map((o,i)=>`<div><b>${i+1}</b>${o.label}${o.fresh?'<em>new</em>':''}</div>`).join('');
+    $('dlgMore').textContent='Press a number · E to leave'; return; }
+  $('dlgText').hidden=false;
+}
+function advanceTalk(){ if(!talk) return;
+  if(talk.mode==='menu'){ endTalk(); return; }
+  talk.i++;
+  if(talk.i<talk.lines.length){ renderTalk(); return; }
+  if(talk.after){ const f=talk.after; talk.after=null; f(); }
+  talk.mode='menu'; renderTalk(); }
+function chooseTalk(n){ if(!talk||talk.mode!=='menu') return; const o=talk.opts[n]; if(!o) return; if(!o.run){ endTalk(); return; }
+  const L=o.run(); talk.lines=L; talk.i=0; talk.mode='lines'; sfx.click(); renderTalk(); }
+function endTalk(){ if(!talk) return; const t=talk; talk=null; t.a.talking=false; $('dialog').hidden=true; $('dlgText').hidden=false; if(S.ui==='dialog') S.ui=null; for(const k of t.learnQ) learn(k); if(t.after) t.after(); }
 
 // ---------- knowledge ----------
 const LEADS = {
@@ -1132,57 +1309,134 @@ const LEADS = {
 };
 function learn(k){ if(S.know[k]) return; S.know[k]=true; const L=LEADS[k]; if(L && !L.hidden){ setTimeout(()=>showMsg(`<span style="color:var(--warn)">New in your journal: ${L.title}.</span> Press J to read it.`,4.5), 400); sfx.chime(3); } }
 
-// ---------- audio ----------
-const A={ctx:null};
+// ---------- audio: music, ambience, positional effects ----------
+const A={ctx:null, noteT:3, birdT:2, owlT:20, screamT:60, twigT:15, giggleT:80, breathT:0};
 function initAudio(){
   if(A.ctx) return;
   try{
     const ctx=new (window.AudioContext||window.webkitAudioContext)(); A.ctx=ctx;
-    A.master=ctx.createGain(); A.master.gain.value=0.9; A.master.connect(ctx.destination);
+    const comp=ctx.createDynamicsCompressor(); comp.threshold.value=-14; comp.ratio.value=4; comp.connect(ctx.destination);
+    A.master=ctx.createGain(); A.master.gain.value=0.9; A.master.connect(comp);
+    // reverb from a generated impulse response
+    const irLen=Math.floor(ctx.sampleRate*3), ir=ctx.createBuffer(2,irLen,ctx.sampleRate);
+    for(let ch=0;ch<2;ch++){ const d=ir.getChannelData(ch); for(let i=0;i<irLen;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/irLen,2.8); }
+    A.rev=ctx.createConvolver(); A.rev.buffer=ir; const revOut=ctx.createGain(); revOut.gain.value=0.5; A.rev.connect(revOut); revOut.connect(A.master);
+    A.sfx=ctx.createGain(); A.sfx.connect(A.master);
+    A.ambF=ctx.createBiquadFilter(); A.ambF.type='lowpass'; A.ambF.frequency.value=16000; A.amb=ctx.createGain(); A.amb.connect(A.ambF); A.ambF.connect(A.master);
+    A.mBus=ctx.createGain(); A.mBus.gain.value=0.6; A.mBus.connect(A.master);
+    A.mIn=ctx.createGain(); A.mIn.connect(A.mBus); const ms=ctx.createGain(); ms.gain.value=0.7; A.mIn.connect(ms); ms.connect(A.rev);
     const len=ctx.sampleRate*2, buf=ctx.createBuffer(1,len,ctx.sampleRate), d=buf.getChannelData(0); for(let i=0;i<len;i++) d[i]=Math.random()*2-1; A.noise=buf;
-    const loop=(filterType,freq,Q)=>{ const s=ctx.createBufferSource(); s.buffer=buf; s.loop=true; const f=ctx.createBiquadFilter(); f.type=filterType; f.frequency.value=freq; f.Q.value=Q; const g=ctx.createGain(); g.gain.value=0; s.connect(f).connect(g).connect(A.master); s.start(); return {f,g}; };
-    const wind=loop('lowpass',380,0.7); A.windG=wind.g; wind.g.gain.value=0.1;
-    const lfo=ctx.createOscillator(); lfo.frequency.value=0.06; const lg=ctx.createGain(); lg.gain.value=200; lfo.connect(lg).connect(wind.f.frequency); lfo.start();
-    const wh=loop('bandpass',2300,9); A.whG=wh.g;
-    const l2=ctx.createOscillator(); l2.frequency.value=2.7; const l2g=ctx.createGain(); l2g.gain.value=900; l2.connect(l2g).connect(wh.f.frequency); l2.start();
-    const st=loop('bandpass',2600,0.5); A.stG=st.g;
-    A.vo=ctx.createOscillator(); A.vo.type='triangle'; A.vo.frequency.value=392; A.voG=ctx.createGain(); A.voG.gain.value=0;
-    const vib=ctx.createOscillator(); vib.frequency.value=5.5; const vg=ctx.createGain(); vg.gain.value=6; vib.connect(vg).connect(A.vo.frequency); vib.start();
-    A.vo.connect(A.voG).connect(A.master); A.vo.start();
+    const loop=(filterType,freq,Q,dest)=>{ const s=ctx.createBufferSource(); s.buffer=buf; s.loop=true; const f=ctx.createBiquadFilter(); f.type=filterType; f.frequency.value=freq; f.Q.value=Q; const g=ctx.createGain(); g.gain.value=0; s.connect(f).connect(g).connect(dest); s.start(); return {f,g}; };
+    const osc=(type,f)=>{ const o=ctx.createOscillator(); o.type=type; o.frequency.value=f; o.start(); return o; };
+    // wind, with gusts
+    const wind=loop('lowpass',380,0.7,A.amb); A.windG=wind.g;
+    const lfo=osc('sine',0.06); const lg=ctx.createGain(); lg.gain.value=220; lfo.connect(lg).connect(wind.f.frequency);
+    // creature whisper bed
+    const wh=loop('bandpass',2300,9,A.sfx); A.whG=wh.g;
+    const l2=osc('sine',2.7); const l2g=ctx.createGain(); l2g.gain.value=900; l2.connect(l2g).connect(wh.f.frequency);
+    // radio static and voice
+    const st=loop('bandpass',2600,0.5,A.sfx); A.stG=st.g;
+    A.vo=osc('triangle',392); A.voG=ctx.createGain(); A.voG.gain.value=0;
+    const vib=osc('sine',5.5); const vg=ctx.createGain(); vg.gain.value=6; vib.connect(vg).connect(A.vo.frequency); A.vo.connect(A.voG).connect(A.sfx);
+    // crickets: they go quiet when something is close
+    const cr=osc('square',4300), crGate=ctx.createGain(); crGate.gain.value=0.5; const cl=osc('square',27), clg=ctx.createGain(); clg.gain.value=0.5; cl.connect(clg).connect(crGate.gain);
+    const cl2=osc('sine',0.6), cl2g=ctx.createGain(); cl2g.gain.value=0.4; cl2.connect(cl2g).connect(crGate.gain);
+    const crf=ctx.createBiquadFilter(); crf.type='bandpass'; crf.frequency.value=4300; crf.Q.value=14; A.crG=ctx.createGain(); A.crG.gain.value=0; cr.connect(crGate).connect(crf).connect(A.crG).connect(A.amb);
+    // music: a low drone that darkens at night
+    A.droneF=ctx.createBiquadFilter(); A.droneF.type='lowpass'; A.droneF.frequency.value=200; A.droneF.Q.value=0.8; A.droneG=ctx.createGain(); A.droneG.gain.value=0;
+    for(const [t,f,g] of [['sawtooth',55,0.5],['sawtooth',55.6,0.5],['triangle',82.4,0.7],['sine',41.2,0.9]]){ const o=osc(t,f), og=ctx.createGain(); og.gain.value=g; o.connect(og).connect(A.droneF); }
+    A.droneF.connect(A.droneG); A.droneG.connect(A.mBus); const dr=ctx.createGain(); dr.gain.value=0.4; A.droneG.connect(dr); dr.connect(A.rev);
+    // music: tremolo strings that rise when you're being hunted
+    A.ten1=osc('sawtooth',220); A.ten2=osc('sawtooth',233.08); const tf=ctx.createBiquadFilter(); tf.type='bandpass'; tf.frequency.value=1100; tf.Q.value=0.7;
+    const trem=ctx.createGain(); trem.gain.value=0.5; const tl=osc('sine',9), tlg=ctx.createGain(); tlg.gain.value=0.5; tl.connect(tlg).connect(trem.gain);
+    A.tenG=ctx.createGain(); A.tenG.gain.value=0; A.ten1.connect(tf); A.ten2.connect(tf); tf.connect(trem).connect(A.tenG); A.tenG.connect(A.mBus); A.tenG.connect(A.rev);
   }catch(e){ A.ctx=null; }
 }
-function tone(f,dur,vol,type='sine',when=0,attack=0.01){ if(!A.ctx) return; const t=A.ctx.currentTime+when; const o=A.ctx.createOscillator(); o.type=type; o.frequency.value=f; const g=A.ctx.createGain();
-  g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(vol,t+attack); g.gain.exponentialRampToValueAtTime(0.0001,t+attack+dur); o.connect(g).connect(A.master); o.start(t); o.stop(t+attack+dur+0.05); return o; }
-function burst(freq,dur,vol,when=0,type='lowpass'){ if(!A.ctx) return; const t=A.ctx.currentTime+when; const s=A.ctx.createBufferSource(); s.buffer=A.noise; const f=A.ctx.createBiquadFilter(); f.type=type; f.frequency.value=freq; const g=A.ctx.createGain();
-  g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); s.connect(f).connect(g).connect(A.master); s.start(t,Math.random()); s.stop(t+dur+0.05); }
+// where a sound comes from: pan it, quiet it with distance, wet it with reverb
+function out(x,z){
+  if(!A.ctx) return null; if(x===undefined) return A.sfx;
+  const dx=x-S.pos.x, dz=z-S.pos.z, d=Math.hypot(dx,dz)||0.01, rx=Math.cos(S.yaw), rz=-Math.sin(S.yaw);
+  const p=A.ctx.createStereoPanner(); p.pan.value=clamp((dx*rx+dz*rz)/d,-1,1)*0.85;
+  const g=A.ctx.createGain(); g.gain.value=1/(1+d*0.1); p.connect(g); g.connect(A.sfx);
+  const w=A.ctx.createGain(); w.gain.value=clamp(d/25,0.1,0.8); g.connect(w); w.connect(A.rev);
+  return p;
+}
+function tone(f,dur,vol,type='sine',when=0,attack=0.01,dest){ if(!A.ctx) return; dest=dest||A.sfx; const t=A.ctx.currentTime+when; const o=A.ctx.createOscillator(); o.type=type; o.frequency.value=f; const g=A.ctx.createGain();
+  g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(vol,t+attack); g.gain.exponentialRampToValueAtTime(0.0001,t+attack+dur); o.connect(g).connect(dest); o.start(t); o.stop(t+attack+dur+0.05); return o; }
+function burst(freq,dur,vol,when=0,type='lowpass',dest,attack=0){ if(!A.ctx) return; dest=dest||A.sfx; const t=A.ctx.currentTime+when; const s=A.ctx.createBufferSource(); s.buffer=A.noise; const f=A.ctx.createBiquadFilter(); f.type=type; f.frequency.value=freq; const g=A.ctx.createGain();
+  if(attack>0){ g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(vol,t+attack); } else g.gain.setValueAtTime(vol,t);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+attack+dur); s.connect(f).connect(g).connect(dest); s.start(t,Math.random()); s.stop(t+attack+dur+0.05); return f; }
+const mtone=(f,dur,vol,type='sine',when=0,attack=0.005)=>A.ctx&&S.musicOn?tone(f,dur,vol,type,when,attack,A.mIn):null;
+const around=(r0,r1)=>{ const a=Math.random()*Math.PI*2, r=rnd(r0,r1); return [S.pos.x+Math.cos(a)*r, S.pos.z+Math.sin(a)*r]; };
+const behind=(r0,r1)=>{ const a=-S.yaw+Math.PI+rnd(-0.9,0.9), r=rnd(r0,r1); return [S.pos.x+Math.sin(a)*r, S.pos.z-Math.cos(a)*r]; };
 const sfx={
-  step:()=>burst(650,0.07,0.06),
+  step:(kind)=>{ if(kind==='wood'){ burst(520,0.07,0.1); tone(120,0.06,0.04); } else if(kind==='road') burst(1600,0.05,0.05,0,'bandpass'); else burst(700,0.08,0.05); },
+  stepAt:(x,z)=>{ const o=out(x,z); burst(320,0.12,0.6,0,'lowpass',o); tone(70,0.1,0.2,'sine',0,0.005,o); },
+  breath:(v)=>{ burst(900,0.35,0.06*v,0,'bandpass',A.sfx,0.22); burst(700,0.4,0.05*v,0.7,'bandpass',A.sfx,0.18); },
   pick:()=>{ tone(880,0.15,0.05); tone(1320,0.2,0.03,'sine',0.06); },
   ward:()=>{ tone(196,1.4,0.08); tone(294,1.6,0.05,'sine',0.05); tone(392,1.8,0.03,'sine',0.1); },
   click:()=>tone(2200,0.02,0.03,'square'),
-  knock:v=>{ for(let i=0;i<3;i++) burst(380,0.09,0.55*v,i*0.27); },
-  creak:v=>{ const o=tone(180,0.6,0.05*v,'sawtooth',0,0.05); if(o) o.frequency.linearRampToValueAtTime(320,A.ctx.currentTime+0.6); burst(900,0.3,0.05*v,0,'bandpass'); },
-  thunk:v=>{ burst(260,0.15,0.5*v); tone(90,0.2,0.2*v); },
+  knockAt:(x,z)=>{ const o=out(x,z); for(let i=0;i<3;i++){ burst(380,0.09,0.8,i*0.27,'lowpass',o); tone(95,0.08,0.3,'sine',i*0.27,0.003,o); } },
+  tapAt:(x,z)=>{ const o=out(x,z); for(let i=0;i<4;i++) tone(2600+Math.random()*400,0.04,0.06,'sine',i*0.18,0.002,o); },
+  creakAt:(x,z)=>{ const o=out(x,z); const osc=tone(170,0.7,0.07,'sawtooth',0,0.05,o); if(osc) osc.frequency.linearRampToValueAtTime(310,A.ctx.currentTime+0.7); burst(1100,0.35,0.07,0,'bandpass',o); },
+  thunkAt:(x,z)=>{ const o=out(x,z); burst(240,0.18,0.7,0,'lowpass',o); tone(80,0.2,0.3,'sine',0,0.003,o); },
+  thunk:()=>{ burst(240,0.18,0.5); tone(80,0.2,0.2); },
   heart:v=>{ tone(52,0.22,0.5*v,'sine',0,0.02); tone(46,0.25,0.35*v,'sine',0.17,0.02); },
-  bell:()=>{ tone(174,5,0.18,'sine',0,0.005); tone(349*1.19,4,0.06,'sine',0,0.005); tone(523,3,0.04,'sine',0,0.005); },
+  bell:()=>{ const o=out(-15,56); tone(174,5,0.4,'sine',0,0.005,o); tone(349*1.19,4,0.14,'sine',0,0.005,o); tone(523,3,0.1,'sine',0,0.005,o); },
   sting:()=>{ tone(110,2.2,0.05,'sawtooth',0,0.05); tone(116.5,2.2,0.05,'sawtooth',0,0.05); tone(164.8,2,0.03,'sawtooth',0.05,0.05); },
+  sightSting:()=>{ if(!A.ctx) return; for(const f of [98,103.8,146.8,155.6,207.7]) tone(f,3,0.05,'sawtooth',0,0.02,A.mIn); burst(3000,1.2,0.12,0,'highpass',A.mIn); },
   thud:()=>{ tone(70,0.8,0.25); burst(200,0.4,0.2); },
   chime:n=>tone([523,587,659,784,880][n-1]||880,1.8,0.06,'sine',0,0.01),
   crank:()=>{ tone(1500+Math.random()*300,0.03,0.04,'square'); burst(1200,0.05,0.05); },
   whisperBurst:()=>{ if(!A.ctx) return; const t=A.ctx.currentTime; A.whG.gain.cancelScheduledValues(t); A.whG.gain.setValueAtTime(A.whG.gain.value,t); A.whG.gain.linearRampToValueAtTime(0.35,t+0.2); A.whG.gain.linearRampToValueAtTime(0.0,t+2.2); },
-  clink:v=>{ tone(2600+Math.random()*500,0.12,0.04*v,'sine'); tone(3300+Math.random()*400,0.1,0.03*v,'sine',0.07); },
-  rattle:v=>{ for(let i=0;i<7;i++) tone(2400+Math.random()*1200,0.1,0.05*v,'sine',i*0.06+Math.random()*0.03); for(let i=0;i<2;i++) burst(420,0.08,0.4*v,0.5+i*0.25); },
-  hum:v=>{ // the bridal chorus, slow and a little flat
-    [[392,0.5],[523,0.4],[523,0.2],[523,0.9],[392,0.5],[587,0.4],[494,0.2],[523,0.9]].reduce((t,[f,d])=>{ tone(f*0.985,d,0.05*v,'triangle',t,0.08); return t+d+0.06; },0); },
-  ding:()=>{ tone(1760,1.6,0.07,'sine',0,0.003); tone(2640,1.0,0.03,'sine',0,0.003); },
+  clinkAt:(x,z)=>{ const o=out(x,z); tone(2600+Math.random()*500,0.12,0.06,'sine',0,0.003,o); tone(3300+Math.random()*400,0.1,0.05,'sine',0.07,0.003,o); },
+  rattleAt:(x,z)=>{ const o=out(x,z); for(let i=0;i<7;i++) tone(2400+Math.random()*1200,0.1,0.07,'sine',i*0.06+Math.random()*0.03,0.003,o); for(let i=0;i<2;i++) burst(420,0.08,0.6,0.5+i*0.25,'lowpass',o); },
+  humAt:(x,z)=>{ const o=out(x,z); [[392,0.5],[523,0.4],[523,0.2],[523,0.9],[392,0.5],[587,0.4],[494,0.2],[523,0.9]].reduce((t,[f,d])=>{ tone(f*0.985,d,0.08,'triangle',t,0.08,o); return t+d+0.06; },0); },
+  dingAt:(x,z)=>{ const o=out(x,z); tone(1760,1.6,0.12,'sine',0,0.003,o); tone(2640,1.0,0.06,'sine',0,0.003,o); },
   musicBox:()=>{ [784,659,587,523,587,659,523,392,440,523].forEach((f,i)=>tone(f,0.9,0.05,'sine',i*0.32,0.005)); },
-  death:()=>{ tone(60,3,0.4,'sawtooth',0,0.01); burst(900,1.6,0.5); }
+  death:()=>{ tone(60,3,0.4,'sawtooth',0,0.01); burst(900,1.6,0.5); },
+  bird:()=>{ const [x,z]=around(12,30), o=out(x,z); const n=2+Math.floor(Math.random()*3), base=2600+Math.random()*1500;
+    for(let i=0;i<n;i++){ const os=tone(base,0.07,0.05,'sine',i*0.13,0.005,o); if(os) os.frequency.exponentialRampToValueAtTime(base*1.4,A.ctx.currentTime+i*0.13+0.07); } },
+  owl:()=>{ const [x,z]=around(30,60), o=out(x,z); tone(390,0.35,0.12,'sine',0,0.06,o); tone(330,0.6,0.1,'sine',0.55,0.06,o); },
+  scream:()=>{ const [x,z]=around(70,120), o=out(x,z); burst(1300,1.4,0.04,0,'bandpass',o,0.1); const os=tone(900,1.6,0.05,'sawtooth',0,0.08,o); if(os) os.frequency.exponentialRampToValueAtTime(260,A.ctx.currentTime+1.6); },
+  twig:()=>{ const [x,z]=behind(6,14), o=out(x,z); burst(2500,0.04,0.5,0,'highpass',o); burst(1800,0.03,0.3,0.09,'highpass',o); },
+  giggle:()=>{ const [x,z]=around(20,40), o=out(x,z); for(let i=0;i<6;i++) tone(620+Math.random()*260,0.09,0.05,'triangle',i*0.12,0.01,o); },
+  dawn:()=>{ for(const [f,w] of [[220,0],[277.2,0.3],[329.6,0.6],[440,1.2]]) mtone(f,6,0.04,'sine',w,1.5); },
 };
+function playNote(nightF,tense){
+  const scale=[220,233.08,261.63,293.66,329.63,349.23,392];
+  const f=pick(scale)*(Math.random()<0.5?1:2)*(nightF>0.5?0.5:1);
+  mtone(f,4.5,0.05,'sine'); mtone(f*2,2.5,0.012,'triangle');
+  if(nightF>0.5 && Math.random()<0.4) mtone(f*1.0595,4,0.035,'sine',0.03);
+  if(Math.random()<0.3) mtone(pick(scale)*(nightF>0.5?0.5:1),4,0.03,'sine',rnd(0.4,1.4));
+  if(tense>0.3) mtone(f*0.5,3,0.05,'triangle',0.2);
+}
+function updateAudio(dt,o){
+  if(!A.ctx) return; const t=A.ctx.currentTime, night=isNight(), nightF=1-dayFactor(S.hour), on=S.musicOn?1:0;
+  const tense=o.nearestChase<45?clamp(1-o.nearestChase/45,0,1):0;
+  A.droneG.gain.setTargetAtTime((0.03+nightF*0.1+tense*0.05)*on,t,1.2);
+  A.droneF.frequency.setTargetAtTime(150+nightF*240+tense*700,t,0.8);
+  A.tenG.gain.setTargetAtTime(tense*0.08*on,t,0.4);
+  A.ten1.frequency.setTargetAtTime(220+tense*70,t,0.5); A.ten2.frequency.setTargetAtTime(233.08+tense*82,t,0.5);
+  A.windG.gain.setTargetAtTime(0.07+nightF*0.09,t,1);
+  const cricketHour=S.hour>=18.5||S.hour<5;
+  A.crG.gain.setTargetAtTime(cricketHour && o.nearest>30 ? 0.014 : 0, t, o.nearest>30?1.5:0.15);
+  A.ambF.frequency.setTargetAtTime(o.inside?650:16000,t,0.3);
+  A.noteT-=dt; if(A.noteT<=0){ A.noteT=night?rnd(3,7):rnd(6,13); if(on) playNote(nightF,tense); }
+  if(!o.inside && S.hour>6.5 && S.hour<18.5){ A.birdT-=dt; if(A.birdT<=0){ A.birdT=rnd(2,7); sfx.bird(); } }
+  if(night){
+    A.owlT-=dt; if(A.owlT<=0){ A.owlT=rnd(20,45); sfx.owl(); }
+    A.screamT-=dt; if(A.screamT<=0){ A.screamT=rnd(50,110); sfx.scream(); }
+    A.giggleT-=dt; if(A.giggleT<=0){ A.giggleT=rnd(60,120); sfx.giggle(); }
+    if(!o.inside){ A.twigT-=dt; if(A.twigT<=0){ A.twigT=rnd(10,28); sfx.twig(); } }
+  }
+  A.breathT-=dt; if(A.breathT<=0 && (S.stamina<0.35 || o.nearestChase<18)){ A.breathT=S.sprinting?0.95:1.3; sfx.breath(S.stamina<0.2||o.nearestChase<10?1.4:1); }
+}
 
 // ---------- UI helpers ----------
 let msgT=0, subT=0;
 function showMsg(t,dur=5){ $('msg').innerHTML=t; $('msg').style.opacity=1; msgT=dur; }
-function showSub(t){ $('sub').textContent='“'+t+'”'; $('sub').style.opacity=1; subT=4.5; }
+function showSub(t){ $('sub').className=''; $('sub').textContent='“'+t+'”'; $('sub').style.opacity=1; subT=4.5; }
 function openNote(title,text,key){ S.ui='note'; $('noteBody').innerHTML=`<h3>${title}</h3><div>${text}</div>`; $('note').hidden=false; if(key) S.notesRead[key]={title,text}; sfx.pick(); }
 function closeUI(){ if(talk) endTalk(); S.ui=null; $('note').hidden=true; $('journal').hidden=true; $('mapWrap').hidden=true; $('tuner').hidden=true; if(A.ctx){ A.stG.gain.value=0; A.voG.gain.value=0; } }
 function grantRelic(id,text){ S.relics.push(id); sfx.musicBox();
@@ -1200,12 +1454,15 @@ function renderJournal(){
   const item=(done,title,txt)=>`<li class="${done?'done':''}"><span>${done?'✕':'○'}</span><span><b>${title}.</b> ${txt}</span></li>`;
   let h=`<h3>Journal</h3><h4>Staying alive</h4><ul>`;
   h+=item(false,'Before dark','Be inside a room with a talisman hanging by the door. Don\'t open up for anyone.');
+  if(!S.trunkDone) h+=item(false,'Your car','Your flashlight and the rest of your things are still in the trunk.');
   h+=`</ul>`;
+  const carried=[]; if(S.hasLight) carried.push(`flashlight (${Math.round(S.battery*100)}%)`); if(S.batteries) carried.push(`${S.batteries} spare batter${S.batteries===1?'y':'ies'}`); if(S.carry) carried.push('a talisman'); if(S.hasMap) carried.push("Hal's map"); for(const r of S.relics) carried.push(RELIC_NAMES[r].toLowerCase());
+  if(carried.length) h+=`<h4>You're carrying</h4><p style="margin:0">${carried.join(', ')}.</p>`;
   const leads=Object.entries(LEADS).filter(([k,L])=>!L.hidden && has(k));
   h+=`<h4>Leads</h4>`;
   if(!leads.length) h+=`<p style="margin:0">Nothing yet. The people in town have been here a while. Someone must know something.</p>`;
   else { h+='<ul>'; for(const [k,L] of leads) h+=item(L.done(),L.title,L.text()); h+='</ul>'; }
-  if(S.relics.length && !has('waystone')) h+=`<p style="margin:8px 0 0"><i>You're carrying ${S.relics.map(r=>RELIC_NAMES[r].toLowerCase()).join(', ')}. It hums, like it belongs somewhere.</i></p>`;
+  if(S.relics.length && !has('waystone')) h+=`<p style="margin:8px 0 0"><i>What you carry hums, like it belongs somewhere.</i></p>`;
   const seen=Object.keys(KINDS).filter(k=>S.seen[k]);
   if(seen.length){ h+='<h4>Things that come at night</h4>'; for(const k of seen) h+=`<p class="heard"><b>${KINDS[k].title}</b><br>${KINDS[k].desc}</p>`; }
   if(S.heard.length){ h+='<h4>What people told you</h4>'; for(const n of S.heard) h+=`<p class="heard"><b>${n.who}</b><br>${n.text}</p>`; }
@@ -1243,7 +1500,10 @@ addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.repeat && S.ui!=='tuner') return;
   if(S.dead||S.won) return;
-  if(S.ui==='dialog'){ if(e.code==='KeyE'||e.code==='Space'||e.code==='Enter') advanceTalk(); else if(e.code==='Escape') endTalk(); return; }
+  if(e.code==='KeyN'){ S.musicOn=!S.musicOn; showMsg(S.musicOn?'Music on.':'Music off.',2); return; }
+  if(S.ui==='dialog'){
+    const m=e.code.match(/^(?:Digit|Numpad)([1-9])$/); if(m){ chooseTalk(+m[1]-1); return; }
+    if(e.code==='KeyE'||e.code==='Space'||e.code==='Enter') advanceTalk(); else if(e.code==='Escape') endTalk(); return; }
   if(S.ui==='tuner'){
     if(e.code==='KeyA'||e.code==='ArrowLeft'){ S.freq=clamp(Math.round((S.freq-0.1)*10)/10,87.5,108); S.tunedT=0; sfx.click(); renderTuner(); }
     if(e.code==='KeyD'||e.code==='ArrowRight'){ S.freq=clamp(Math.round((S.freq+0.1)*10)/10,87.5,108); S.tunedT=0; sfx.click(); renderTuner(); }
@@ -1252,7 +1512,11 @@ addEventListener('keydown',e=>{
   }
   if(e.code==='KeyE'){ if(S.ui==='note'){ closeUI(); return; } const it=currentInteract; if(it && !it.hold) it.act(); else if(it && it.hold && !isNight()) it.act(); }
   if(e.code==='Escape' && S.ui) closeUI();
-  if(e.code==='KeyF'){ S.flashlight=!S.flashlight; sfx.click(); }
+  if(e.code==='KeyF'){
+    if(!S.hasLight){ showMsg("You don't have a light. It's in the trunk of your car."); return; }
+    if(!S.flashlight && S.battery<=0){ showMsg(S.batteries?'The batteries are dead. Press R to swap them.':'The batteries are dead, and you have no spares.'); sfx.click(); return; }
+    S.flashlight=!S.flashlight; sfx.click(); }
+  if(e.code==='KeyR' && S.hasLight){ if(S.batteries>0 && S.battery<0.97){ S.batteries--; S.battery=1; sfx.click(); setTimeout(()=>sfx.click(),180); showMsg('Fresh batteries.',2); } else if(!S.batteries) showMsg('No spare batteries.',2); }
   if(e.code==='KeyM'){ if(!S.hasMap){ showMsg(has('hal')?"You don't have a map. Maybe Hal left something in his house.":"You don't have a map."); return; } if(S.ui==='map') closeUI(); else { closeUI(); S.ui='map'; drawMap(); $('mapWrap').hidden=false; } }
   if(e.code==='KeyJ'||e.code==='Tab'){ if(S.ui==='journal') closeUI(); else { closeUI(); S.ui='journal'; renderJournal(); $('journal').hidden=false; } }
 });
@@ -1266,11 +1530,11 @@ addEventListener('mouseup',()=>dragging=false);
 addEventListener('mousemove',e=>{ if(!S.started||S.paused) return; if(S.locked || (S.noLock && dragging)){ S.yaw-=e.movementX*0.0022; S.pitch=clamp(S.pitch-e.movementY*0.0022,-1.45,1.45); } });
 function requestLock(){ try{ const p=cvs.requestPointerLock(); if(p && p.catch) p.catch(()=>{ S.noLock=true; }); }catch(e){ S.noLock=true; } }
 document.addEventListener('pointerlockchange',()=>{ S.locked=document.pointerLockElement===cvs;
-  if(S.locked){ S.paused=false; $('pause').hidden=true; } else if(S.started && !S.dead && !S.won){ S.paused=true; $('pause').hidden=false; } });
+  if(S.locked){ S.paused=false; $('pause').hidden=true; if(A.ctx) A.ctx.resume(); } else if(S.started && !S.dead && !S.won){ S.paused=true; $('pause').hidden=false; if(A.ctx) A.ctx.suspend(); } });
 document.addEventListener('pointerlockerror',()=>{ S.noLock=true; });
-$('startBtn').addEventListener('click',()=>{ initAudio(); if(A.ctx&&A.ctx.state==='suspended') A.ctx.resume(); $('title').hidden=true; $('hud').hidden=false; S.started=true; S.hour=7; S.time=0; requestLock();
-  showMsg('Your car is wrecked on the road south of here. This was the only place with a light on. Someone left a note on the counter.',8); });
-$('resumeBtn').addEventListener('click',()=>{ $('pause').hidden=true; S.paused=false; requestLock(); });
+$('startBtn').addEventListener('click',()=>{ initAudio(); if(A.ctx&&A.ctx.state==='suspended') A.ctx.resume(); $('title').hidden=true; $('hud').hidden=false; S.started=true; S.hour=14; S.time=0; requestLock();
+  showMsg('You come to with your forehead against the steering wheel. Steam rises off the hood. Up the road, through the fog, there are buildings. Your things are in the trunk.',9); });
+$('resumeBtn').addEventListener('click',()=>{ $('pause').hidden=true; S.paused=false; requestLock(); if(A.ctx) A.ctx.resume(); });
 $('againBtn').addEventListener('click',()=>location.reload());
 
 // ---------- time & lighting ----------
@@ -1287,10 +1551,12 @@ function updateLighting(){
   hemi.intensity=0.1+0.55*f; hemi.color.setHex(f>0.3?0xc4cacf:0x5a6a8a);
   sun.intensity=0.04+0.62*f; sun.color.copy(cSun.set(0xfff1dd).lerp(cDusk2,duskW*0.6));
   const nightF=1-f;
-  for(const b of buildings) b.winMat.emissiveIntensity=b.talisman?nightF*0.9:0;
+  for(const b of buildings){ const lit=b.talisman?nightF:0; b.winMat.emissiveIntensity=lit*0.9; b.winMat.opacity=0.14+lit*0.32; }
   M.bulb.color.setHex(nightF>0.5?0xffd9a0:0x555555);
-  flash.intensity=S.flashlight?2.0:0;
+  let fi=0; if(S.flashlight){ fi=2.0; if(S.battery<0.15) fi=Math.random()<0.12?0.15:0.5+1.5*S.battery/0.15; }
+  flash.intensity=fi;
   towerLight.visible=Math.sin(S.time*3)>0;
+  headlight.visible=Math.sin(S.time*7)+Math.sin(S.time*2.3)>-0.4;
 }
 
 // ---------- death / respawn / win ----------
@@ -1300,7 +1566,7 @@ function die(){
   setTimeout(()=>{ if(S.dead) $('death').hidden=false; },700);
 }
 function respawn(){
-  S.dead=false; $('death').hidden=true; clearCreatures(); S.day++; S.hour=7; S.pos={x:-11,z:0}; S.yaw=-Math.PI/2; S.pitch=0; S.stamina=1; S.crank=0;
+  S.dead=false; $('death').hidden=true; clearCreatures(); S.day++; S.hour=7; S.pos={x:-11,z:0}; S.yaw=-Math.PI/2; S.pitch=0; S.stamina=1; S.crank=0; S.fed=false; S.coffee=false;
   showMsg(`Day ${S.day}. Your chest aches where their hands were.`);
 }
 function win(){
@@ -1325,24 +1591,25 @@ function update(dt){
   hourPrev=S.hour; S.hour+=dt/HOUR_SEC*(waiting?14:1); if(S.hour>=24) S.hour-=24;
   if(crossed(hourPrev,S.hour,18.5)) showMsg('The light is going. People are heading indoors. You should too.');
   if(crossed(hourPrev,S.hour,19.5)) sfx.bell();
-  if(crossed(hourPrev,S.hour,20)){ spawnNight(); showMsg(safe?'Night. Stay where you are.':'Night. They\'re out of the trees.'); if(A.ctx) A.windG.gain.value=0.16; }
-  if(crossed(hourPrev,S.hour,6)){ S.day++; for(const c of creatures){ c.state='leave'; c.leaveT=0; } showMsg(`Day ${S.day}. They walk back into the trees as if nothing happened.`); if(A.ctx) A.windG.gain.value=0.1; }
+  if(crossed(hourPrev,S.hour,20)){ spawnNight(); showMsg(safe?'Night. Stay where you are.':'Night. They\'re out of the trees.'); }
+  if(crossed(hourPrev,S.hour,6)){ S.day++; S.fed=false; S.coffee=false; for(const c of creatures){ c.state='leave'; c.leaveT=0; } showMsg(`Day ${S.day}. They walk back into the trees as if nothing happened.`); sfx.dawn(); }
 
   const closedDoors=doors.filter(d=>!d.open).map(d=>d.box);
-  // movement
   const frozen=S.ui==='tuner'||S.ui==='note'||S.ui==='dialog';
   let ix=0,iz=0; if(!frozen){ if(keys.KeyW||keys.ArrowUp) iz+=1; if(keys.KeyS||keys.ArrowDown) iz-=1; if(keys.KeyD||keys.ArrowRight) ix+=1; if(keys.KeyA||keys.ArrowLeft) ix-=1; }
   const moving=ix||iz;
   if(S.stamina<=0.02) S.tired=true; if(S.tired&&S.stamina>0.35) S.tired=false;
   S.sprinting=!!(moving && (keys.ShiftLeft||keys.ShiftRight) && !S.tired && iz>=0);
-  S.stamina=clamp(S.stamina+(S.sprinting?-dt/6:dt/9),0,1);
+  S.stamina=clamp(S.stamina+(S.sprinting?-dt/(S.coffee?9:6):dt/(S.fed?5:9)),0,1);
   const speed=S.sprinting?6.4:(S.tired?2.6:3.6);
   if(moving){
     const fx=-Math.sin(S.yaw), fz=-Math.cos(S.yaw), rx=Math.cos(S.yaw), rz=-Math.sin(S.yaw);
     let vx=fx*iz+rx*ix, vz=fz*iz+rz*ix; const l=Math.hypot(vx,vz); vx/=l; vz/=l;
     S.pos.x+=vx*speed*dt; S.pos.z+=vz*speed*dt; collide(S.pos,0.35,closedDoors);
-    S.bob+=dt*speed*1.75; if(Math.floor(S.bob/Math.PI)!==S.lastStep){ S.lastStep=Math.floor(S.bob/Math.PI); sfx.step(); }
+    S.bob+=dt*speed*1.75; if(Math.floor(S.bob/Math.PI)!==S.lastStep){ S.lastStep=Math.floor(S.bob/Math.PI); sfx.step(pb?'wood':Math.abs(S.pos.x)<4?'road':'grass'); }
   }
+  // flashlight batteries
+  if(S.flashlight){ S.battery-=dt/170; if(S.battery<=0){ S.battery=0; S.flashlight=false; sfx.click(); showMsg(S.batteries?'The flashlight dies. Press R to put in fresh batteries.':'The flashlight dies. You have no spare batteries.'); } }
   if(Math.abs(S.pos.x)>WORLD||Math.abs(S.pos.z)>WORLD){
     const onRoad=Math.abs(S.pos.x)<14;
     if(S.exitOpen && isDaylight() && onRoad && S.pos.z<-WORLD){ win(); return; }
@@ -1354,7 +1621,6 @@ function update(dt){
   camera.position.set(S.pos.x,1.65+(moving?Math.sin(S.bob*2)*0.035:0),S.pos.z);
   camera.rotation.set(S.pitch,S.yaw,0); camera.updateMatrixWorld();
 
-  // happenstance: stumbling onto places
   for(const k of ['bus','stones','radio','well']) if(!S.visited[k] && dist(LOC[k],S.pos)<24){ S.visited[k]=true; showMsg(VISIT_TEXT[k],6); learn(k); }
   if(!S.visited.halHouse && pb===B.halHouse){ S.visited.halHouse=true; showMsg(has('hal')?"Hal's house. The door was standing open. Papers are pinned all over the walls.":"The door was standing open. Nobody has lived here for a while. Papers are pinned all over the walls."); }
 
@@ -1377,10 +1643,11 @@ function update(dt){
     renderTuner();
   }
 
-  updateNPCs(dt,closedDoors);
+  updateNPCs(dt,closedDoors,!pb && S.hour>=17.5 && S.hour<20);
   let nearest=1e9, nearestChase=1e9;
   if(creatures.length){ const extraC=closedDoors.concat(buildings.filter(b=>b.talisman).map(b=>b.doorBox)); const r=updateCreatures(dt,pb,safe,extraC); if(S.dead) return; nearest=r.nearest; nearestChase=r.nearestChase; }
   if(A.ctx){ const wv=nearest<28?(1-nearest/28)*0.18:0; if(A.whG.gain.value<0.3) A.whG.gain.value=lerp(A.whG.gain.value,wv,dt*2); }
+  updateAudio(dt,{nearest,nearestChase,inside:!!pb});
   if(nearestChase<38){ heartT-=dt; const bpm=lerp(150,72,nearestChase/38); if(heartT<=0){ heartT=60/bpm; sfx.heart(clamp(1.2-nearestChase/38,0.3,1)); } }
   $('danger').style.opacity = nearestChase<38 ? clamp(1-nearestChase/38,0,1)*0.9 : (nearest<12 && !safe ? 0.25 : 0);
 
@@ -1389,6 +1656,7 @@ function update(dt){
   if(msgT>0){ msgT-=dt; if(msgT<=0) $('msg').style.opacity=0; }
   if(subT>0){ subT-=dt; if(subT<=0) $('sub').style.opacity=0; }
   for(const t of tokens) if(!t.got) t.g.rotation.y+=dt*0.6;
+  trunkLid.rotation.x=lerp(trunkLid.rotation.x,S.trunkDone?-1.1:0,dt*3);
   if(S.ui==='map' && Math.random()<0.1) drawMap();
 }
 const _v=new THREE.Vector3(), _f=new THREE.Vector3();
@@ -1419,7 +1687,8 @@ function updateHUD(pb,safe,it,waiting){
   const relicCount=S.placed+S.relics.length;
   if(relicCount||has('waystone')) inv+=`<div class="row"><span class="k">Relics</span><span>${has('waystone')?relicCount+'/4':relicCount}${S.relics.length?` (${S.relics.map(r=>RELIC_NAMES[r]).join(', ')})`:''}</span></div>`;
   if(S.tokens&&!S.busDone) inv+=`<div class="row"><span class="k">Figures</span><span>${S.tokens}${has('bus')?'/3':''}</span></div>`;
-  inv+=`<div class="row"><span class="k">Light</span><span>${S.flashlight?'on':'off'} <span style="color:var(--dim)">[F]</span></span></div>`;
+  if(S.hasLight){ const pct=Math.round(S.battery*100); inv+=`<div class="row"><span class="k">Light</span><span class="${pct<20?'low':''}">${S.flashlight?'on':'off'} · ${pct}%</span><span style="color:var(--dim)">${S.batteries} spare · [F] [R]</span></div>`; }
+  else inv+=`<div class="row"><span class="k">Light</span><span style="color:var(--dim)">none, it's in the trunk</span></div>`;
   if($('inv').innerHTML!==inv) $('inv').innerHTML=inv;
   $('stam').style.opacity=S.stamina<0.98?1:0; $('stam').firstElementChild.style.width=(S.stamina*100)+'%'; $('stam').firstElementChild.style.background=S.tired?'#e2574c':'';
   const lab=it?it.label():''; const ph2=it?(it.hold&&isNight()?'<b>E</b>hold · ':'<b>E</b>')+lab:''; if($('prompt').innerHTML!==ph2) $('prompt').innerHTML=ph2;
@@ -1431,7 +1700,7 @@ function frame(now){
   const dt=Math.min(0.05,(now-last)/1000); last=now;
   if(S.started && !S.paused && !S.won) update(dt);
   else if(!S.started){
-    S.time+=dt; camera.position.set(-2+Math.sin(S.time*0.05)*3,1.7,30); camera.rotation.set(0.02,Math.PI*0.02+Math.sin(S.time*0.07)*0.2,0); S.hour=19.3; updateLighting(); }
+    S.time+=dt; camera.position.set(-2+Math.sin(S.time*0.05)*3,1.7,30); camera.rotation.set(0.02,Math.PI*0.02+Math.sin(S.time*0.07)*0.2,0); const h=S.hour; S.hour=19.3; updateLighting(); S.hour=h; }
   renderer.render(scene,camera);
   requestAnimationFrame(frame);
 }
