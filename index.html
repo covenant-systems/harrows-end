@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Special+Elite&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <style>
-/* Layout: full-bleed WebGL canvas with a sparse HUD pinned to the corners; paper overlays for notes, journal and map. Single dark look by choice. */
+/* Layout: full-bleed WebGL canvas with a sparse HUD pinned to the corners; paper overlays for notes, journal and map; a dialogue strip at the bottom. Single dark look by choice. */
 :root{
   --night:#07080b;
   --ink:#e8e1cf;
@@ -33,7 +33,6 @@ html,body{height:100%;margin:0;background:var(--night);color:var(--ink);overflow
   border-bottom:1px solid rgba(232,225,207,.25);mask-image:linear-gradient(90deg,transparent,#000 20%,#000 80%,transparent)}
 #compass span{position:absolute;top:2px;transform:translateX(-50%);font-size:13px;letter-spacing:.12em;color:var(--dim)}
 #compass span.card{color:var(--ink);font-weight:600}
-#compass span.loc{color:var(--warn);font-size:11px;top:6px}
 #compass .tick{position:absolute;left:50%;bottom:0;width:1px;height:8px;background:var(--ink)}
 #clock{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));left:calc(18px + env(safe-area-inset-left,0px));display:grid;gap:2px}
 #dayLbl{font-family:var(--font-title);font-size:22px;letter-spacing:.04em}
@@ -50,6 +49,7 @@ html,body{height:100%;margin:0;background:var(--night);color:var(--ink);overflow
 #cross{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:rgba(232,225,207,.7)}
 #prompt{position:absolute;left:50%;top:calc(50% + 34px);transform:translateX(-50%);font-size:14px;white-space:nowrap;text-shadow:0 1px 3px #000}
 #prompt b{display:inline-block;border:1px solid var(--ink);border-radius:3px;padding:0 6px;margin-right:8px;font-weight:600}
+#prompt em{color:var(--warn);font-style:normal}
 #hold{position:absolute;left:50%;top:calc(50% + 62px);transform:translateX(-50%);width:180px;height:4px;background:rgba(255,255,255,.12)}
 #hold i{display:block;height:100%;width:0;background:var(--warn)}
 #msg{position:absolute;left:50%;bottom:22%;transform:translateX(-50%);width:min(640px,88vw);text-align:center;font-family:var(--font-hand);font-size:19px;line-height:1.45;text-shadow:0 2px 6px #000;transition:opacity .6s}
@@ -67,14 +67,17 @@ html,body{height:100%;margin:0;background:var(--night);color:var(--ink);overflow
 .small{font-size:12px;color:var(--dim);font-family:var(--font-mono)}
 #death{background:radial-gradient(ellipse at center,rgba(60,4,2,.85),rgba(5,0,0,.97))}
 #death h2{color:#e9c3bb}
-.paper{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-.6deg);width:min(520px,calc(100vw - 32px));max-height:calc(100vh - 80px);overflow-y:auto;box-sizing:border-box;
+.paper{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-.6deg);width:min(540px,calc(100vw - 32px));max-height:calc(100vh - 80px);overflow-y:auto;box-sizing:border-box;
   background:var(--paper);color:var(--paper-ink);font-family:var(--font-hand);font-size:16px;line-height:1.6;padding:26px 28px;box-shadow:0 20px 60px rgba(0,0,0,.7)}
 .paper h3{font-family:var(--font-title);font-weight:400;font-size:26px;margin:0 0 10px}
+.paper h4{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;margin:16px 0 8px;opacity:.7}
 .paper .close{margin-top:16px;font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;opacity:.6}
-.paper ul{list-style:none;padding:0;margin:0 0 14px;display:grid;gap:6px}
+.paper ul{list-style:none;padding:0;margin:0 0 6px;display:grid;gap:8px}
 .paper li{display:grid;grid-template-columns:22px 1fr;gap:4px}
-.paper li.done{opacity:.55;text-decoration:line-through}
-.paper hr{border:0;border-top:1px dashed rgba(43,36,25,.4);margin:14px 0}
+.paper li.done{opacity:.55}
+.paper li.done span:last-child{text-decoration:line-through}
+.paper .heard{margin:8px 0 0;font-size:15px}
+.paper .heard b{font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
 #mapWrap{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) rotate(.5deg);box-shadow:0 20px 60px rgba(0,0,0,.7)}
 #mapC{display:block;width:min(600px,calc(100vw - 32px),calc(100vh - 60px));height:auto;aspect-ratio:1}
 #tuner{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(480px,calc(100vw - 32px));box-sizing:border-box;background:#14130f;border:1px solid #4a4433;border-radius:6px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.8);display:grid;gap:14px}
@@ -83,11 +86,16 @@ html,body{height:100%;margin:0;background:var(--night);color:var(--ink);overflow
 #needle{position:absolute;top:0;bottom:0;width:2px;background:#e2574c}
 #clar{height:4px;background:#2a271f}#clar i{display:block;height:100%;background:#ffb94d;width:0}
 #transcript{font-family:var(--font-hand);font-size:15px;color:#d8ccaf;min-height:66px;line-height:1.5}
+#dialog{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(720px,calc(100vw - 32px));box-sizing:border-box;
+  background:rgba(14,13,11,.92);border:1px solid rgba(232,225,207,.22);border-radius:4px;padding:18px 22px;display:grid;gap:8px;box-shadow:0 14px 40px rgba(0,0,0,.6)}
+#dlgName{font-family:var(--font-title);font-size:22px;color:var(--warn)}
+#dlgRole{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-left:10px;font-family:var(--font-mono)}
+#dlgText{font-family:var(--font-hand);font-size:18px;line-height:1.5;color:var(--ink)}
+#dlgMore{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
 @media (prefers-reduced-motion:reduce){#msg,#sub,#danger{transition:none}}
 </style>
 </head>
 <body>
-
 <div id="game"></div>
 <div id="vignette"></div>
 <div id="danger"></div>
@@ -108,14 +116,14 @@ html,body{height:100%;margin:0;background:var(--night);color:var(--ink);overflow
 <div id="title" class="screen">
   <div class="inner">
     <h1>Harrow's End</h1>
-    <p>The highway was closed, so you took the detour. A tree across the road, a crunch of metal, and then a town that isn't on any map. Nobody answers the doors. The people who lived here left notes behind, and every one of them says the same thing: <em>be inside before dark.</em></p>
+    <p>The highway was closed, so you took the detour. A tree across the road, a crunch of metal, and then a town that isn't on any map. A handful of people live here. None of them know how to leave. Every one of them will tell you the same thing: <em>be inside before dark.</em></p>
     <div class="keys">
       <kbd>W A S D</kbd><span>Walk &nbsp;·&nbsp; <kbd>Shift</kbd> to run</span>
       <kbd>Mouse</kbd><span>Look around</span>
-      <kbd>E</kbd><span>Use, read, pick up (hold for some things)</span>
+      <kbd>E</kbd><span>Talk, open doors, read, pick up (hold for some things)</span>
       <kbd>F</kbd><span>Flashlight</span>
-      <kbd>M</kbd><span>Map (once you have one)</span>
-      <kbd>J</kbd><span>Journal: objectives and notes</span>
+      <kbd>M</kbd><span>Map (if you can find one)</span>
+      <kbd>J</kbd><span>Journal: what you've learned</span>
       <kbd>T</kbd><span>Hold to wait for dawn while protected</span>
     </div>
     <p class="small" id="touchWarn" hidden>This game needs a keyboard and mouse.</p>
@@ -142,6 +150,11 @@ html,body{height:100%;margin:0;background:var(--night);color:var(--ink);overflow
   <div id="band"><div id="needle"></div></div>
   <div id="clar"><i></i></div>
   <div id="transcript"></div>
+</div>
+<div id="dialog" hidden>
+  <div><span id="dlgName"></span><span id="dlgRole"></span></div>
+  <div id="dlgText"></div>
+  <div id="dlgMore">E to continue</div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -188,8 +201,26 @@ const roomLight = new THREE.PointLight(0xffb36b, 0, 15, 1.4); scene.add(roomLigh
 
 addEventListener('resize', () => { camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 
+// ---------- static batching: merge every static mesh that shares a material into one draw call ----------
+const UNIT_BOX = new THREE.BoxGeometry(1,1,1).toNonIndexed();
+const _m=new THREE.Matrix4(), _q=new THREE.Quaternion(), _s=new THREE.Vector3(), _p=new THREE.Vector3(), UP=new THREE.Vector3(0,1,0);
+const batches = new Map();
+function sgeo(geo,mat,m){ const g=(geo.index?geo.toNonIndexed():geo.clone()); g.applyMatrix4(m); if(!batches.has(mat)) batches.set(mat,[]); batches.get(mat).push(g); }
+function sbox(sx,sy,sz,mat,x,y,z,ry=0){ _q.setFromAxisAngle(UP,ry); _m.compose(_p.set(x,y,z),_q,_s.set(sx,sy,sz)); sgeo(UNIT_BOX,mat,_m); }
+function splane(w,h,mat,x,y,z,ry=0,rx=0){ const e=new THREE.Euler(rx,ry,0,'YXZ'); _q.setFromEuler(e); _m.compose(_p.set(x,y,z),_q,_s.set(1,1,1)); sgeo(new THREE.PlaneGeometry(w,h),mat,_m); }
+function buildBatches(){
+  for(const [mat,list] of batches){
+    let n=0; for(const g of list) n+=g.attributes.position.count;
+    const pos=new Float32Array(n*3), nor=new Float32Array(n*3), uv=new Float32Array(n*2); let o=0;
+    for(const g of list){ const c=g.attributes.position.count; pos.set(g.attributes.position.array,o*3); nor.set(g.attributes.normal.array,o*3); if(g.attributes.uv) uv.set(g.attributes.uv.array,o*2); o+=c; g.dispose(); }
+    const bg=new THREE.BufferGeometry(); bg.setAttribute('position',new THREE.BufferAttribute(pos,3)); bg.setAttribute('normal',new THREE.BufferAttribute(nor,3)); bg.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+    bg.computeBoundingSphere(); scene.add(new THREE.Mesh(bg,mat));
+  }
+  batches.clear();
+}
+
 // ---------- textures ----------
-function canvasTex(w,h,draw){ const c=document.createElement('canvas'); c.width=w;c.height=h; draw(c.getContext('2d'),w,h); const t=new THREE.CanvasTexture(c); return t; }
+function canvasTex(w,h,draw){ const c=document.createElement('canvas'); c.width=w;c.height=h; draw(c.getContext('2d'),w,h); return new THREE.CanvasTexture(c); }
 const groundTex = canvasTex(256,256,(g,w,h)=>{ g.fillStyle='#3b4231'; g.fillRect(0,0,w,h);
   for(let i=0;i<5000;i++){ const v=R(); g.fillStyle = v<.4?'rgba(70,62,44,.5)':v<.8?'rgba(40,52,34,.6)':'rgba(95,100,72,.35)'; g.fillRect(R()*w,R()*h,1+R()*3,1+R()*3);} });
 groundTex.wrapS=groundTex.wrapT=THREE.RepeatWrapping; groundTex.repeat.set(140,140);
@@ -199,6 +230,8 @@ const roadTex = canvasTex(64,256,(g,w,h)=>{ g.fillStyle='#2d2d2c'; g.fillRect(0,
 roadTex.wrapS=roadTex.wrapT=THREE.RepeatWrapping; roadTex.repeat.set(1,(WORLD*2+240)/16);
 function textTex(lines,w,h,bg,fg,font){ return canvasTex(w,h,(g)=>{ g.fillStyle=bg; g.fillRect(0,0,w,h); g.fillStyle=fg; g.textAlign='center'; g.textBaseline='middle';
   lines.forEach((l,i)=>{ g.font=l.f||font; g.fillText(l.t, w/2, h*(i+1)/(lines.length+1)); }); }); }
+const plankTex = canvasTex(64,64,(g,w,h)=>{ g.fillStyle='#6a5038'; g.fillRect(0,0,w,h); for(let i=0;i<8;i++){ g.fillStyle=i%2?'#5e4631':'#715640'; g.fillRect(0,i*8,w,7); g.fillStyle='rgba(0,0,0,.25)'; g.fillRect(0,i*8+7,w,1); } });
+plankTex.wrapS=plankTex.wrapT=THREE.RepeatWrapping; plankTex.repeat.set(4,4);
 
 // ---------- ground & road ----------
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(WORLD*2+240, WORLD*2+240), new THREE.MeshLambertMaterial({map:groundTex}));
@@ -207,8 +240,8 @@ const road = new THREE.Mesh(new THREE.PlaneGeometry(8, WORLD*2+240), new THREE.M
 road.rotation.x=-Math.PI/2; road.position.y=0.02; scene.add(road);
 
 // ---------- collision ----------
-const boxes = [];       // static AABBs {minX,maxX,minZ,maxZ}
-const grid = new Map(); // circles (trees, props) by cell
+const boxes = [];
+const grid = new Map();
 const CELL = 8;
 function addBox(cx,cz,sx,sz){ const b={minX:cx-sx/2,maxX:cx+sx/2,minZ:cz-sz/2,maxZ:cz+sz/2}; boxes.push(b); return b; }
 function addCircle(x,z,r){ const k=Math.floor(x/CELL)+','+Math.floor(z/CELL); if(!grid.has(k)) grid.set(k,[]); grid.get(k).push({x,z,r}); }
@@ -222,7 +255,7 @@ function pushBox(p,r,b){
 }
 function collide(p,r,extra){
   for(let it=0;it<2;it++){
-    for(const b of boxes) pushBox(p,r,b);
+    for(const b of boxes){ if(p.x+r<b.minX||p.x-r>b.maxX||p.z+r<b.minZ||p.z-r>b.maxZ) continue; pushBox(p,r,b); }
     if(extra) for(const b of extra) pushBox(p,r,b);
     const gx=Math.floor(p.x/CELL), gz=Math.floor(p.z/CELL);
     for(let i=-1;i<=1;i++) for(let j=-1;j<=1;j++){ const cell=grid.get((gx+i)+','+(gz+j)); if(!cell) continue;
@@ -235,104 +268,23 @@ const inter = [];
 function addInteract(o){ inter.push(o); return o; }
 
 // ---------- materials ----------
+const lam = (c,extra) => new THREE.MeshLambertMaterial(Object.assign({color:c},extra||{}));
 const M = {
-  roof: new THREE.MeshLambertMaterial({color:0x3a302b}),
-  floor: new THREE.MeshLambertMaterial({color:0x5a4634}),
-  ceil: new THREE.MeshLambertMaterial({color:0x6c6457}),
-  wood: new THREE.MeshLambertMaterial({color:0x5b412c}),
-  dark: new THREE.MeshLambertMaterial({color:0x1d1c1b}),
-  metal: new THREE.MeshLambertMaterial({color:0x4b4e50}),
-  stone: new THREE.MeshLambertMaterial({color:0x6b6c68}),
-  fabric: new THREE.MeshLambertMaterial({color:0x6a5a52}),
-  paper: new THREE.MeshBasicMaterial({color:0xcfc4a6}),
-  bulb: new THREE.MeshBasicMaterial({color:0x555555}),
-  iron: new THREE.MeshLambertMaterial({color:0x2a2a2c}),
+  roof: lam(0x3a302b), roofRed: lam(0x5a2a24), roofGreen: lam(0x2f3b33),
+  floor: lam(0xffffff,{map:plankTex}), ceil: lam(0x6c6457),
+  wood: lam(0x5b412c), woodLight: lam(0x8a6a48), dark: lam(0x1d1c1b),
+  metal: lam(0x4b4e50), stone: lam(0x6b6c68), brick: lam(0x6e3b2e), found: lam(0x3d3b37),
+  fabric: lam(0x6a5a52), sheet: lam(0xd8d4c8), white: lam(0xe4e2da),
+  blanketR: lam(0x7a3030), blanketB: lam(0x2f4a6a), blanketG: lam(0x4a5a3a), blanketY: lam(0x9a7a3a),
+  red: lam(0x7a2020), crate: lam(0x7a6040), hay: lam(0xc9a74a), green: lam(0x3e5a36),
+  iron: lam(0x2a2a2c), trimW: lam(0xd8d0bc), trimD: lam(0x3b3026), shutter: lam(0x2f3a33), shutterR: lam(0x5a2a26),
+  rugR: lam(0x6b2a2a), rugB: lam(0x2c3a5a), rugG: lam(0x3e4a2e), bottle: lam(0x2e5a3a,{emissive:0x0e2a16}),
+  paper: new THREE.MeshBasicMaterial({color:0xcfc4a6}), bulb: new THREE.MeshBasicMaterial({color:0x555555}),
+  fire: new THREE.MeshBasicMaterial({color:0xff7a2a}), lampshade: new THREE.MeshBasicMaterial({color:0xffcf8a}),
+  candle: new THREE.MeshBasicMaterial({color:0xffe2a8}), jukebox: lam(0x8a4a2a,{emissive:0x5a2a10}),
+  dirt: lam(0x55462f), crop: lam(0xffffff), glassIn: lam(0x0c1014,{side:THREE.DoubleSide}),
 };
 function box(sx,sy,sz,mat,x,y,z,parent=scene){ const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),mat); m.position.set(x,y,z); parent.add(m); return m; }
-
-// ---------- buildings ----------
-const buildings = [];
-function makeTalismanMesh(){
-  const g=new THREE.Group();
-  const ring=new THREE.Mesh(new THREE.TorusGeometry(0.17,0.03,6,18), M.iron); g.add(ring);
-  const stoneMat=new THREE.MeshLambertMaterial({color:0x7d8a84, emissive:0x3f8f7a, emissiveIntensity:0.5});
-  const s=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,0.05,10), stoneMat); s.rotation.x=Math.PI/2; g.add(s);
-  const cord=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.35,4), M.dark); cord.position.y=0.34; g.add(cord);
-  return g;
-}
-function makeBuilding(def){
-  const b=Object.assign({h:3.2, talisman:false}, def);
-  const {x,z,w,d,h,door}=b, t=0.3, dw=1.7, dh=2.4, hw=w/2, hd=d/2;
-  const g=new THREE.Group(); scene.add(g); b.group=g;
-  const wallMat=new THREE.MeshLambertMaterial({color:b.color});
-  const seg=(cx,cz,sx,sz,y0,y1,col=true)=>{ box(sx,y1-y0,sz,wallMat,cx,(y0+y1)/2,cz,g); if(col) addBox(cx,cz,sx,sz); };
-  const sides={N:{cx:x,cz:z-hd,len:w+t,ax:'x'},S:{cx:x,cz:z+hd,len:w+t,ax:'x'},W:{cx:x-hw,cz:z,len:d-t,ax:'z'},E:{cx:x+hw,cz:z,len:d-t,ax:'z'}};
-  b.winMat=new THREE.MeshLambertMaterial({color:0x161b20, emissive:0xffa24a, emissiveIntensity:0, side:THREE.DoubleSide});
-  for(const [k,s] of Object.entries(sides)){
-    if(k!==door){
-      if(s.ax==='x') seg(s.cx,s.cz,s.len,t,0,h); else seg(s.cx,s.cz,t,s.len,0,h);
-      // windows on non-door walls
-      const nw = Math.max(1, Math.floor((s.ax==='x'?w:d)/5));
-      for(let i=0;i<nw;i++){
-        const off=((i+0.5)/nw-0.5)*(s.ax==='x'?w:d);
-        for(const side of [-1,1]){
-          const pl=new THREE.Mesh(new THREE.PlaneGeometry(1.1,0.9), b.winMat);
-          if(s.ax==='x'){ pl.position.set(s.cx+off,1.65,s.cz+side*(t/2+0.01)); }
-          else { pl.position.set(s.cx+side*(t/2+0.01),1.65,s.cz+off); pl.rotation.y=Math.PI/2; }
-          g.add(pl);
-        }
-      }
-    } else {
-      const part=(s.len-dw)/2, off=dw/2+part/2;
-      if(s.ax==='x'){ seg(s.cx-off,s.cz,part,t,0,h); seg(s.cx+off,s.cz,part,t,0,h); seg(s.cx,s.cz,dw,t,dh,h,false); }
-      else { seg(s.cx,s.cz-off,t,part,0,h); seg(s.cx,s.cz+off,t,part,0,h); seg(s.cx,s.cz,t,dw,dh,h,false); }
-    }
-  }
-  box(w,0.05,d,M.floor,x,0.03,z,g);
-  box(w+t,0.12,d+t,M.ceil,x,h+0.06,z,g);
-  const big=Math.max(w,d), roofG=new THREE.Group(); roofG.position.set(x,h+0.12,z); roofG.scale.set((w+1)/big,1,(d+1)/big); g.add(roofG);
-  const roof=new THREE.Mesh(new THREE.ConeGeometry(big/Math.SQRT2,b.roofH||2.2,4,1), M.roof); roof.rotation.y=Math.PI/4; roof.position.y=(b.roofH||2.2)/2; roofG.add(roof);
-  const n={N:[0,-1],S:[0,1],W:[-1,0],E:[1,0]}[door]; b.n=n;
-  const half=(door==='N'||door==='S')?hd:hw; b.half=half; b.otherHalf=(door==='N'||door==='S')?hw:hd;
-  b.doorC={x:x+n[0]*half, z:z+n[1]*half};
-  b.doorOut={x:b.doorC.x+n[0]*1.5, z:b.doorC.z+n[1]*1.5};
-  b.doorIn={x:b.doorC.x-n[0]*1.5, z:b.doorC.z-n[1]*1.5};
-  b.doorBox=(door==='N'||door==='S')
-    ? {minX:b.doorC.x-dw/2-0.1,maxX:b.doorC.x+dw/2+0.1,minZ:b.doorC.z-0.3,maxZ:b.doorC.z+0.3}
-    : {minX:b.doorC.x-0.3,maxX:b.doorC.x+0.3,minZ:b.doorC.z-dw/2-0.1,maxZ:b.doorC.z+dw/2+0.1};
-  b.inner={minX:x-hw+t/2,maxX:x+hw-t/2,minZ:z-hd+t/2,maxZ:z+hd-t/2};
-  // talisman hook beside door on the inside
-  const tx=-n[1], tz=n[0];
-  const hx=b.doorC.x-n[0]*0.2+tx*1.3, hz=b.doorC.z-n[1]*0.2+tz*1.3;
-  const hook=box(0.04,0.04,0.2,M.iron,hx,2.25,hz,g); hook.rotation.y=Math.atan2(n[0],n[1]);
-  b.tal=makeTalismanMesh(); b.tal.position.set(hx,2.0,hz); b.tal.rotation.y=Math.atan2(n[0],n[1]); g.add(b.tal);
-  b.tal.visible=b.talisman;
-  addInteract({x:hx,y:2.0,z:hz,r:2.6,
-    label:()=> b.talisman ? (S.carry ? 'A talisman hangs here' : 'Take the talisman') : (S.carry ? 'Hang the talisman' : 'An empty hook by the door'),
-    act:()=>{
-      if(b.talisman && !S.carry){ b.talisman=false; b.tal.visible=false; S.carry=true; sfx.pick();
-        showMsg(isNight() ? 'You lift it off the hook. Nothing stands between this room and the dark now.' : 'You take the talisman. This room is no longer protected.'); }
-      else if(!b.talisman && S.carry){ b.talisman=true; b.tal.visible=true; S.carry=false; sfx.ward();
-        showMsg('The stone settles against the wall. The air in the room goes still.'); expelFrom(b); }
-      else if(!b.talisman) showMsg('Nothing hangs here. Whatever kept this room safe is gone.');
-    }});
-  buildings.push(b);
-  return b;
-}
-function buildingAt(x,z){ for(const b of buildings){ const i=b.inner; if(x>i.minX&&x<i.maxX&&z>i.minZ&&z<i.maxZ) return b; } return null; }
-
-// ---------- notes ----------
-function addNotePost(x,z,rotY,title,text,key){
-  const g=new THREE.Group(); g.position.set(x,0,z); g.rotation.y=rotY; scene.add(g);
-  box(0.1,1.4,0.1,M.wood,0,0.7,0,g); const p=box(0.4,0.5,0.02,M.paper,0,1.35,0.06,g);
-  addCircle(x,z,0.15);
-  addInteract({x,y:1.35,z,r:2.4,label:()=> 'Read the note', act:()=>openNote(title,text,key)});
-}
-function addWallNote(x,y,z,rotY,title,text,key){
-  const p=new THREE.Mesh(new THREE.PlaneGeometry(0.4,0.5),M.paper); p.position.set(x,y,z); p.rotation.y=rotY; scene.add(p);
-  addInteract({x,y,z,r:2.4,label:()=>'Read the note',act:()=>openNote(title,text,key)});
-  return p;
-}
 
 // ---------- game state ----------
 const S = {
@@ -342,77 +294,298 @@ const S = {
   carry:false, hasMap:false, flashlight:false,
   tokens:0, busDone:false, stoneSeq:0, stonesDone:false, radioDone:false, wellDone:false,
   relics:[], placed:0, exitOpen:false, crank:0, tunedT:0, freq:88.0,
-  notesRead:{}, visited:{}, chaseSting:0
+  know:{}, heard:[], notesRead:{}, visited:{}, chaseSting:0
 };
 const RELIC_NAMES={soldier:'Tin soldier',glyph:'Glyph stone',tape:'Cassette tape',musicbox:'Music box'};
 
+// ---------- doors ----------
+const doors = [];
+function openDoor(d,auto){ if(d.open) return; d.open=true; d.autoT=auto?3.5:0; sfx.creak(clamp(1-dist(d.c,S.pos)/30,0.08,1)); }
+function closeDoor(d){ if(!d.open) return; d.open=false; d.autoT=0; sfx.thunk(clamp(1-dist(d.c,S.pos)/30,0.08,1)); }
+function makeDoor(b,dw,dh,color){
+  const t=b.t, n=b.n;
+  const hinge={x:b.doorC.x-t[0]*dw/2, z:b.doorC.z-t[1]*dw/2};
+  const pivot=new THREE.Group(); pivot.position.set(hinge.x,0,hinge.z); scene.add(pivot);
+  const base=Math.atan2(-t[1],t[0]);
+  const mat=lam(color);
+  const leaf=new THREE.Mesh(new THREE.BoxGeometry(dw-0.04,dh-0.04,0.07),mat); leaf.position.set(dw/2,dh/2,0); pivot.add(leaf);
+  for(const y of [0.55,1.55]){ const p=new THREE.Mesh(new THREE.BoxGeometry(dw*0.6,0.6,0.09),lam(new THREE.Color(color).multiplyScalar(0.8).getHex())); p.position.set(dw/2,y,0); pivot.add(p); }
+  const knobM=lam(0xb08a3a); for(const s of [-1,1]){ const k=new THREE.Mesh(new THREE.SphereGeometry(0.04,8,6),knobM); k.position.set(dw-0.18,1.0,s*0.06); pivot.add(k); }
+  // which way is "inward"?
+  const testDir=a=>({x:Math.cos(a), z:-Math.sin(a)});
+  const td=testDir(base+1.5), sign=(td.x*n[0]+td.z*n[1])<0?1:-1;
+  const d={b,pivot,base,sign,ang:0,open:false,autoT:0,c:b.doorC,box:b.doorBox};
+  pivot.rotation.y=base;
+  doors.push(d);
+  addInteract({x:b.doorC.x,y:1.25,z:b.doorC.z,r:2.3,label:()=>d.open?'Close the door':'Open the door',act:()=>d.open?closeDoor(d):openDoor(d,false)});
+  return d;
+}
+function updateDoors(dt){
+  for(const d of doors){
+    const target=d.open?d.sign*1.75:0; d.ang+=clamp(target-d.ang,-dt*3.2,dt*3.2); d.pivot.rotation.y=d.base+d.ang;
+    if(d.open && d.autoT>0){ d.autoT-=dt; if(d.autoT<=0){ let clear=dist(d.c,S.pos)>1.4; for(const a of npcs) if(dist(a.pos,d.c)<1.4) clear=false; for(const a of creatures) if(dist(a.pos,d.c)<1.4) clear=false; if(clear) closeDoor(d); else d.autoT=1; } }
+  }
+}
+
+// ---------- buildings ----------
+const buildings = [];
+const B = {};
+function makeTalismanMesh(){
+  const g=new THREE.Group();
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(0.17,0.03,6,18), M.iron); g.add(ring);
+  const stoneMat=lam(0x7d8a84,{emissive:0x3f8f7a, emissiveIntensity:0.5});
+  const s=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,0.05,10), stoneMat); s.rotation.x=Math.PI/2; g.add(s);
+  const cord=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.35,4), M.dark); cord.position.y=0.34; g.add(cord);
+  return g;
+}
+// building-local coordinates: u runs along the door wall, v runs from the door wall into the room
+function Luv(b,u,v){ return {x:b.doorC.x-b.n[0]*v+b.t[0]*u, z:b.doorC.z-b.n[1]*v+b.t[1]*u}; }
+function fbox(b,u,v,su,sv,sy,mat,y0=0,col=false){ const p=Luv(b,u,v);
+  const sx=Math.abs(b.t[0])*su+Math.abs(b.n[0])*sv, sz=Math.abs(b.t[1])*su+Math.abs(b.n[1])*sv;
+  sbox(sx,sy,sz,mat,p.x,y0+sy/2,p.z); if(col) addBox(p.x,p.z,sx,sz); return p; }
+function colUV(b,u,v,su,sv){ const p=Luv(b,u,v); addBox(p.x,p.z,Math.abs(b.t[0])*su+Math.abs(b.n[0])*sv, Math.abs(b.t[1])*su+Math.abs(b.n[1])*sv); }
+const faceDoor = b => Math.atan2(b.n[0],b.n[1]);       // rotation for a plane on the back wall, facing the door
+function makeBuilding(def){
+  const b=Object.assign({h:3.2, talisman:false, trim:M.trimW, shutter:M.shutter, roofMat:M.roof, doorColor:0x4a3626}, def);
+  const {x,z,w,d,h,door}=b, t=0.3, dw=1.5, dh=2.3, hw=w/2, hd=d/2;
+  const wallMat=lam(b.color); b.wallMat=wallMat;
+  const n={N:[0,-1],S:[0,1],W:[-1,0],E:[1,0]}[door]; b.n=n; b.t=[-n[1],n[0]];
+  const half=(door==='N'||door==='S')?hd:hw; b.half=half; b.otherHalf=(door==='N'||door==='S')?hw:hd; b.D=half*2;
+  b.doorC={x:x+n[0]*half, z:z+n[1]*half};
+  b.doorOut={x:b.doorC.x+n[0]*1.5, z:b.doorC.z+n[1]*1.5};
+  b.doorIn={x:b.doorC.x-n[0]*1.5, z:b.doorC.z-n[1]*1.5};
+  b.doorBox=(door==='N'||door==='S')
+    ? {minX:b.doorC.x-dw/2-0.1,maxX:b.doorC.x+dw/2+0.1,minZ:b.doorC.z-0.3,maxZ:b.doorC.z+0.3}
+    : {minX:b.doorC.x-0.3,maxX:b.doorC.x+0.3,minZ:b.doorC.z-dw/2-0.1,maxZ:b.doorC.z+dw/2+0.1};
+  b.inner={minX:x-hw+t/2,maxX:x+hw-t/2,minZ:z-hd+t/2,maxZ:z+hd-t/2};
+  b.winMat=lam(0x161b20,{emissive:0xffa24a, emissiveIntensity:0, side:THREE.DoubleSide});
+  const seg=(cx,cz,sx,sz,y0,y1,col=true)=>{ sbox(sx,y1-y0,sz,wallMat,cx,(y0+y1)/2,cz); if(col){ addBox(cx,cz,sx,sz); sbox(sx+0.12,0.32,sz+0.12,M.found,cx,0.16,cz); } };
+  const win=(cx,cz,ax,out)=>{ // ax: axis the wall runs along; out: outward normal
+    const ry=ax==='x'?0:Math.PI/2;
+    for(const s of [-1,1]){ const outer=(ax==='x'?out[1]:out[0])===s; splane(1.1,0.95,outer?b.winMat:M.glassIn,cx+(ax==='z'?s*(t/2+0.01):0),1.65,cz+(ax==='x'?s*(t/2+0.01):0),ry); }
+    const ox=cx+out[0]*(t/2+0.03), oz=cz+out[1]*(t/2+0.03), along=ax==='x'?[1,0]:[0,1];
+    const P=(a,y,sa,sy,sd,mat)=>sbox(along[0]?sa:sd,sy,along[1]?sa:sd,mat,ox+along[0]*a,y,oz+along[1]*a);
+    P(0,2.17,1.34,0.09,0.08,b.trim); P(0,1.13,1.4,0.08,0.16,b.trim); P(-0.6,1.65,0.08,1.0,0.08,b.trim); P(0.6,1.65,0.08,1.0,0.08,b.trim); P(0,1.65,0.04,0.95,0.05,b.trim);
+    P(-0.92,1.65,0.42,1.05,0.04,b.shutter); P(0.92,1.65,0.42,1.05,0.04,b.shutter);
+  };
+  const sides={N:{cx:x,cz:z-hd,len:w+t,ax:'x',out:[0,-1]},S:{cx:x,cz:z+hd,len:w+t,ax:'x',out:[0,1]},W:{cx:x-hw,cz:z,len:d-t,ax:'z',out:[-1,0]},E:{cx:x+hw,cz:z,len:d-t,ax:'z',out:[1,0]}};
+  for(const [k,s] of Object.entries(sides)){
+    const span=s.ax==='x'?w:d;
+    if(k!==door){
+      if(s.ax==='x') seg(s.cx,s.cz,s.len,t,0,h); else seg(s.cx,s.cz,t,s.len,0,h);
+      const nw=Math.max(1,Math.floor(span/4.2));
+      for(let i=0;i<nw;i++){ const off=((i+0.5)/nw-0.5)*span; if(s.ax==='x') win(s.cx+off,s.cz,'x',s.out); else win(s.cx,s.cz+off,'z',s.out); }
+    } else {
+      const part=(s.len-dw)/2, off=dw/2+part/2;
+      if(s.ax==='x'){ seg(s.cx-off,s.cz,part,t,0,h); seg(s.cx+off,s.cz,part,t,0,h); seg(s.cx,s.cz,dw,t,dh,h,false); }
+      else { seg(s.cx,s.cz-off,t,part,0,h); seg(s.cx,s.cz+off,t,part,0,h); seg(s.cx,s.cz,t,dw,dh,h,false); }
+      if(span>=7.5) for(const sg of [-1,1]){ const o=sg*(dw/2+1.5); if(s.ax==='x') win(s.cx+o,s.cz,'x',s.out); else win(s.cx,s.cz+o,'z',s.out); }
+      // door frame
+      const ox=b.doorC.x+n[0]*(t/2+0.04), oz=b.doorC.z+n[1]*(t/2+0.04);
+      for(const sg of [-1,1]) sbox(s.ax==='x'?0.14:0.1,dh+0.1,s.ax==='x'?0.1:0.14,b.trim,ox+b.t[0]*sg*(dw/2+0.07),(dh+0.1)/2,oz+b.t[1]*sg*(dw/2+0.07));
+      sbox(s.ax==='x'?dw+0.42:0.12,0.14,s.ax==='x'?0.12:dw+0.42,b.trim,ox,dh+0.08,oz);
+    }
+  }
+  // corner boards
+  for(const [cx,cz] of [[x-hw,z-hd],[x+hw,z-hd],[x-hw,z+hd],[x+hw,z+hd]]) sbox(0.38,h,0.38,b.trim,cx,h/2,cz);
+  sbox(w+t+0.1,0.22,d+t+0.1,b.trim,x,h-0.11,z);
+  // floor, ceiling, roof
+  splane(w,d,M.floor,x,0.03,z,0,-Math.PI/2);
+  sbox(w+t,0.12,d+t,M.ceil,x,h+0.06,z);
+  const big=Math.max(w,d), rh=b.roofH||2.2;
+  const cone=new THREE.ConeGeometry(big/Math.SQRT2,rh,4,1);
+  const mr=new THREE.Matrix4().makeTranslation(x,h+0.12,z).multiply(new THREE.Matrix4().makeScale((w+1.1)/big,1,(d+1.1)/big)).multiply(new THREE.Matrix4().makeTranslation(0,rh/2,0)).multiply(new THREE.Matrix4().makeRotationY(Math.PI/4));
+  sgeo(cone,b.roofMat,mr);
+  // porch
+  if(b.porch){ const pw=Math.min(b.otherHalf*2-0.6,6.2), pd=2.4, pc={x:b.doorC.x+n[0]*(pd/2+0.15), z:b.doorC.z+n[1]*(pd/2+0.15)};
+    const sx=Math.abs(b.t[0])*pw+Math.abs(n[0])*pd, sz=Math.abs(b.t[1])*pw+Math.abs(n[1])*pd;
+    sbox(sx,0.14,sz,M.woodLight,pc.x,0.07,pc.z);
+    for(const sg of [-1,1]){ const px=b.doorC.x+n[0]*(pd+0.05)+b.t[0]*sg*(pw/2-0.15), pz=b.doorC.z+n[1]*(pd+0.05)+b.t[1]*sg*(pw/2-0.15);
+      sbox(0.16,2.6,0.16,b.trim,px,1.3,pz); addCircle(px,pz,0.14);
+      // railing
+      const rx=b.doorC.x+n[0]*(pd+0.05)+b.t[0]*sg*(pw/4+0.6), rz=b.doorC.z+n[1]*(pd+0.05)+b.t[1]*sg*(pw/4+0.6), rl=pw/2-1.2;
+      if(rl>0.3) sbox(Math.abs(b.t[0])*rl+0.06,0.08,Math.abs(b.t[1])*rl+0.06,b.trim,rx,0.95,rz); }
+    sbox(sx+0.3,0.12,sz+0.2,b.roofMat,pc.x+n[0]*0.1,2.66,pc.z+n[1]*0.1);
+  }
+  if(b.sign){ const tex=textTex([{t:b.sign}],512,96,b.signBg||'#2a221c',b.signFg||'#d8b06a','bold 54px Georgia');
+    const p=new THREE.Mesh(new THREE.PlaneGeometry(Math.min(4.2,b.otherHalf*1.5),0.8),lam(0xffffff,{map:tex}));
+    p.position.set(b.doorC.x+n[0]*(t/2+0.05),b.porch?3.0:dh+0.75,b.doorC.z+n[1]*(t/2+0.05)); p.rotation.y=Math.atan2(n[0],n[1]); scene.add(p); }
+  if(b.chimney!==undefined){ const p=Luv(b,b.chimney,b.D-0.6); sbox(0.85,h+2.6,0.85,M.brick,p.x,(h+2.6)/2,p.z); }
+  // door
+  b.door=makeDoor(b,dw,dh,b.doorColor);
+  if(b.doorOpen) b.door.open=true, b.door.ang=b.door.sign*1.75;
+  // talisman hook beside the door, inside
+  const hp=Luv(b,1.25,0.22);
+  sbox(0.06,0.06,0.06,M.iron,hp.x,2.25,hp.z);
+  b.tal=makeTalismanMesh(); b.tal.position.set(hp.x,2.0,hp.z); b.tal.rotation.y=Math.atan2(n[0],n[1]); scene.add(b.tal);
+  b.tal.visible=b.talisman;
+  addInteract({x:hp.x,y:2.0,z:hp.z,r:2.6,
+    label:()=> b.talisman ? (S.carry ? 'A talisman hangs here' : 'Take the talisman') : (S.carry ? 'Hang the talisman' : 'An empty hook by the door'),
+    act:()=>{
+      if(b.talisman && !S.carry){ b.talisman=false; b.tal.visible=false; S.carry=true; sfx.pick();
+        showMsg(isNight() ? 'You lift it off the hook. Nothing stands between this room and the dark now.' : 'You take the talisman. This room is no longer protected.'); }
+      else if(!b.talisman && S.carry){ b.talisman=true; b.tal.visible=true; S.carry=false; sfx.ward();
+        showMsg('The stone settles against the wall. The air in the room goes still.'); expelFrom(b); }
+      else if(!b.talisman) showMsg('Nothing hangs here. Whatever kept this room safe is gone.');
+    }});
+  buildings.push(b); if(b.id) B[b.id]=b;
+  if(b.interior) b.interior(b);
+  return b;
+}
+function buildingAt(x,z){ for(const b of buildings){ const i=b.inner; if(x>i.minX&&x<i.maxX&&z>i.minZ&&z<i.maxZ) return b; } return null; }
+
+// ---------- furniture ----------
+const F = {
+  table(b,u,v,su=1.4,sv=0.9,mat=M.wood){ fbox(b,u,v,su,sv,0.07,mat,0.72,true); fbox(b,u,v,0.14,0.14,0.72,M.dark); },
+  chair(b,u,v,face=1,mat=M.wood){ fbox(b,u,v,0.45,0.45,0.06,mat,0.44,true); fbox(b,u,v+face*0.2,0.45,0.06,0.55,mat,0.5); fbox(b,u,v,0.08,0.08,0.44,M.dark); },
+  bed(b,u,v,su,sv,blanket=M.blanketR){ fbox(b,u,v,su,sv,0.32,M.wood,0,true); fbox(b,u,v,su-0.08,sv-0.08,0.14,M.sheet,0.32);
+    if(sv>=su){ fbox(b,u,v+0.3,su-0.04,sv-0.66,0.06,blanket,0.44); fbox(b,u,v-sv/2+0.3,su-0.3,0.35,0.1,M.white,0.46); fbox(b,u,v-sv/2+0.05,su,0.08,0.75,M.wood,0.32); }
+    else { fbox(b,u+0.3,v,su-0.66,sv-0.04,0.06,blanket,0.44); fbox(b,u-su/2+0.3,v,0.35,sv-0.3,0.1,M.white,0.46); fbox(b,u-su/2+0.05,v,0.08,sv,0.75,M.wood,0.32); } },
+  shelf(b,u,v,su,sv,h=2,items=true){ fbox(b,u,v,su,sv,h,M.wood,0,true);
+    if(items) for(const y of [0.55,1.1,1.65]) if(y<h-0.2) for(let i=0;i<3;i++){ const c=[M.red,M.blanketB,M.crate,M.white,M.bottle][Math.floor(R()*5)]; fbox(b,u+(i-1)*su*0.28,v,0.18+R()*0.12,sv+0.04,0.25+R()*0.12,c,y); } },
+  fireplace(b,u,su=1.6){ const v=b.D-0.5; fbox(b,u,v,su,0.7,1.25,M.stone,0,true); fbox(b,u,v-0.36,su*0.56,0.04,0.7,M.dark,0.05); fbox(b,u,v-0.3,su*0.4,0.1,0.32,M.fire,0.06); fbox(b,u,v-0.02,su+0.24,0.86,0.08,M.wood,1.25);
+    const p=Luv(b,u,b.D); sbox(0.9,b.h+2.6,0.9,M.brick,p.x,(b.h+2.6)/2,p.z); },
+  counter(b,u,v,su,sv,mat=M.wood){ fbox(b,u,v,su,sv,1.0,mat,0,true); fbox(b,u,v,su+0.12,sv+0.12,0.05,M.dark,1.0); },
+  stool(b,u,v){ const p=fbox(b,u,v,0.36,0.36,0.07,M.red,0.68); fbox(b,u,v,0.08,0.08,0.68,M.metal); addCircle(p.x,p.z,0.2); },
+  rug(b,u,v,su,sv,mat=M.rugR){ fbox(b,u,v,su,sv,0.015,mat,0.035); },
+  crate(b,u,v,s=0.8,y=0){ fbox(b,u,v,s,s,s,M.crate,y,y===0); },
+  hay(b,u,v,su=1.2,sv=0.6,y=0){ fbox(b,u,v,su,sv,0.55,M.hay,y,y===0); },
+  pew(b,u,v,su){ fbox(b,u,v,su,0.45,0.08,M.wood,0.44,true); fbox(b,u,v+0.22,su,0.07,0.62,M.wood,0.48); fbox(b,u-su/2+0.05,v,0.08,0.45,0.44,M.wood); fbox(b,u+su/2-0.05,v,0.08,0.45,0.44,M.wood); },
+  bars(b,u0,u1,v){ for(let u=u0;u<=u1+0.01;u+=0.24) fbox(b,u,v,0.05,0.05,2.4,M.iron); fbox(b,(u0+u1)/2,v,u1-u0,0.07,0.07,M.iron,2.35); colUV(b,(u0+u1)/2,v,u1-u0,0.12); },
+  lamp(b,u,v,y=0.79){ fbox(b,u,v,0.1,0.1,0.25,M.dark,y); fbox(b,u,v,0.3,0.3,0.22,M.lampshade,y+0.24); },
+  cabinet(b,u,v,su,sv,h,mat=M.woodLight){ fbox(b,u,v,su,sv,h,mat,0,true); },
+  stove(b,u,v){ fbox(b,u,v,0.9,0.8,0.9,M.iron,0,true); fbox(b,u-0.2,v,0.26,0.26,0.02,M.dark,0.9); fbox(b,u+0.2,v,0.26,0.26,0.02,M.dark,0.9); },
+  wallPaper(b,u,v,y,w=0.35,h=0.45){ const p=Luv(b,u,v); splane(w,h,M.paper,p.x,y,p.z,faceDoor(b)); },
+};
+
+// ---------- notes ----------
+function openNoteFn(title,text,key,learnKeys){ return ()=>{ openNote(title,text,key); if(learnKeys) for(const k of learnKeys) learn(k); }; }
+function addNotePost(x,z,rotY,title,text,key,learnKeys){
+  sbox(0.1,1.4,0.1,M.wood,x,0.7,z); const p=new THREE.Mesh(new THREE.PlaneGeometry(0.4,0.5),M.paper); p.position.set(x+Math.sin(rotY)*0.06,1.35,z+Math.cos(rotY)*0.06); p.rotation.y=rotY; scene.add(p);
+  addCircle(x,z,0.15);
+  addInteract({x,y:1.35,z,r:2.4,label:()=> 'Read the note', act:openNoteFn(title,text,key,learnKeys)});
+}
+
 // ---------- the town ----------
 const LOC = {
-  bus:{x:-150,z:-130,name:'The bus'},
-  stones:{x:165,z:-140,name:'The stones'},
-  radio:{x:-172,z:150,name:'Radio tower'},
-  well:{x:160,z:160,name:'The well'},
-  waystone:{x:6.5,z:-72,name:'Waystone'}
+  bus:{x:-150,z:-130,name:'the bus'},
+  stones:{x:165,z:-140,name:'the stones'},
+  radio:{x:-172,z:150,name:'the radio tower'},
+  well:{x:160,z:160,name:'the well'},
+  waystone:{x:6.5,z:-72,name:'the waystone'}
 };
-const diner = makeBuilding({name:'Diner',x:-14,z:0,w:14,d:10,door:'E',color:0x7d6b5a,talisman:true});
-makeBuilding({name:'Grey house',x:14,z:-22,w:8,d:8,door:'W',color:0x6e7b7a,talisman:true});
-makeBuilding({name:'Brown house',x:-14,z:-26,w:8,d:8,door:'E',color:0x8a7d63,talisman:false});
-makeBuilding({name:'Violet house',x:14,z:18,w:8,d:9,door:'W',color:0x6b5f6e,talisman:true});
-makeBuilding({name:'Ochre house',x:-14,z:26,w:9,d:8,door:'E',color:0x7a6f5a,talisman:true});
-makeBuilding({name:'Green house',x:15,z:46,w:8,d:8,door:'W',color:0x5f6e62,talisman:false});
-const church = makeBuilding({name:'Chapel',x:-15,z:52,w:9,d:13,door:'E',color:0xb0aa9c,talisman:false,h:4.2,roofH:3.4});
-const wellShed = makeBuilding({name:'Well shed',x:171,z:152,w:4.4,d:4.4,door:'W',color:0x5d5246,talisman:false,h:2.8,roofH:1.4});
-const radioShack = makeBuilding({name:'Radio shack',x:-162,z:150,w:5,d:4.4,door:'W',color:0x58605a,talisman:false,h:2.8,roofH:1.2});
 
-// diner sign + interior
-{ const sign=new THREE.Mesh(new THREE.PlaneGeometry(4,1), new THREE.MeshLambertMaterial({map:textTex([{t:'DINER'}],256,64,'#2a221c','#d8b06a','bold 44px Georgia')}));
-  sign.position.set(-6.82,3.6,0); sign.rotation.y=Math.PI/2; scene.add(sign);
-  box(0.8,1.05,6,M.wood,-18,0.52,0); addBox(-18,0,0.8,6);
-  for(const zz of [-3.4,3.4]){ box(1.4,0.08,1.4,M.wood,-10.5,0.8,zz); box(0.15,0.8,0.15,M.dark,-10.5,0.4,zz); addCircle(-10.5,zz,0.75); }
-  // starting note on the counter
-  const n=new THREE.Mesh(new THREE.PlaneGeometry(0.35,0.45),M.paper); n.rotation.x=-Math.PI/2; n.rotation.z=0.3; n.position.set(-17.8,1.06,0.6); scene.add(n);
-  addInteract({x:-17.8,y:1.06,z:0.6,r:2.4,label:()=>'Read the note on the counter',act:()=>openNote('Left on the counter',
-    `If you're reading this, you came in off the road like the rest of us did. There's no use driving out. We tried. The road just brings you back around.<br><br>
+// West side of the road (doors face east)
+makeBuilding({id:'station',name:"Sheriff's office",x:-14,z:-26,w:10,d:8,door:'E',color:0x6f6a5e,talisman:true,sign:'SHERIFF',signBg:'#1e2a36',signFg:'#e0c070',porch:true,roofMat:M.roofGreen,doorColor:0x2e3a46,
+  interior(b){ F.table(b,-1.6,4.2,1.8,0.9,M.woodLight); F.chair(b,-1.6,4.9,1); F.chair(b,-1.6,3.4,-1); F.lamp(b,-2.2,4.2);
+    F.bars(b,0.4,3.7,5.4); F.bed(b,2.6,7,1.6,0.9,M.blanketG); F.cabinet(b,-3.4,7.3,0.9,0.6,1.5,M.metal); F.cabinet(b,-3.4,6.4,0.9,0.6,1.5,M.metal);
+    F.wallPaper(b,-2.5,b.D-0.17,1.7,0.9,0.7); F.wallPaper(b,-1.1,b.D-0.17,1.6); F.rug(b,-1,2.5,2.4,1.6,M.rugB); }});
+const diner = makeBuilding({id:'diner',name:'Diner',x:-14,z:0,w:14,d:10,door:'E',color:0x7d6b5a,talisman:true,sign:'DINER',porch:true,roofMat:M.roofRed,shutter:M.shutterR,doorColor:0x6a2a24,
+  interior(b){ F.counter(b,0,10.6,6,0.8); for(let u=-2.5;u<=2.5;u+=1.25) F.stool(b,u,9.6);
+    for(const v of [3.2,6.4]) for(const s of [-1,1]){ F.table(b,s*4,v,1.3,1.0,M.red); fbox(b,s*4,v-0.95,1.6,0.5,0.5,M.red,0,true); fbox(b,s*4,v+0.95,1.6,0.5,0.5,M.red,0,true); fbox(b,s*4.7,v,0.2,2.3,1.1,M.red); }
+    F.stove(b,-3,13.3); F.counter(b,0,13.3,3.2,0.8,M.metal); F.cabinet(b,3.6,13.3,1.1,0.8,1.9,M.white); fbox(b,4.4,9.2,0.9,0.6,1.5,M.jukebox,0,true); F.lamp(b,-4,3.2); F.lamp(b,4,6.4); }});
+makeBuilding({id:'halHouse',name:"Hal's house",x:-14,z:28,w:8,d:8,door:'E',color:0x7a6f5a,talisman:false,porch:true,chimney:2.2,doorColor:0x3a3a34,doorOpen:true,
+  interior(b){ F.table(b,-2.7,4.6,1.6,0.9,M.woodLight); F.chair(b,-1.8,4.6,1); F.bed(b,2.5,6.6,1.5,2.0,M.blanketY); F.shelf(b,-3.4,7.4,1.2,0.5,1.8);
+    for(let i=0;i<6;i++){ const p=Luv(b,-3.83,2.6+i*0.75); splane(0.35,0.45,M.paper,p.x,1.4+(i%2)*0.5,p.z,Math.atan2(b.t[0],b.t[1])); }
+    F.crate(b,1.2,7.4); F.crate(b,1.2,7.4,0.6,0.8); F.rug(b,0,4,2,2.4,M.rugG); }});
+makeBuilding({id:'chapel',name:'Chapel',x:-15,z:56,w:9,d:13,door:'E',color:0xb0aa9c,talisman:false,h:4.4,roofH:3.6,trim:M.trimD,shutter:M.trimD,doorColor:0x3e2a1c,
+  interior(b){ for(let v=2.2;v<=6.6;v+=1.4) for(const s of [-1,1]) F.pew(b,s*3.3,v,2.6);
+    fbox(b,0,b.D-1.4,2.4,1.3,1.0,M.stone,0,true); for(const s of [-1,1]){ fbox(b,s*0.9,b.D-1.4,0.06,0.06,0.25,M.candle,1.0); } F.rug(b,0,4.6,1.4,7,M.rugR); }});
+// East side of the road (doors face west)
+makeBuilding({id:'booneHouse',name:'Boone house',x:14,z:-24,w:9,d:8,door:'W',color:0x6e7b7a,talisman:true,porch:true,chimney:-2,doorColor:0x2c3b4a,
+  interior(b){ F.bed(b,-2.8,7,1.8,2.0,M.blanketB); F.bed(b,3.2,6.8,1.0,1.9,M.blanketR); F.table(b,0.6,3.6,1.4,0.9); F.chair(b,0.1,3.6,-1); F.chair(b,1.1,3.6,-1);
+    F.fireplace(b,0.4); F.rug(b,0.4,5.6,2.4,1.6,M.rugR); F.shelf(b,-3.55,3.2,0.5,1.4,1.8); F.lamp(b,-1.8,7.8,0.3); }});
+makeBuilding({id:'clinic',name:'Clinic',x:14,z:4,w:10,d:9,door:'W',color:0xc8c6bc,talisman:true,sign:'CLINIC',signBg:'#e4e2da',signFg:'#7a2020',trim:M.trimD,shutter:M.shutter,doorColor:0xe4e2da,
+  interior(b){ fbox(b,-2.6,6,0.8,2.0,0.85,M.white,0,true); fbox(b,-2.6,5.2,0.8,0.4,0.12,M.white,0.85); F.cabinet(b,-3.95,3,0.6,1.6,1.9,M.white);
+    F.table(b,2.8,3.2,1.6,0.9); F.chair(b,2.8,4.0,1); F.lamp(b,3.3,3.2); F.bed(b,3.6,7.6,1.4,1.0,M.blanketG);
+    for(let u=-1.2;u<=1.4;u+=0.4) fbox(b,u,5.0,0.36,0.04,1.9,M.sheet,0.15); F.shelf(b,0.4,8.4,2,0.5,1.8); }});
+makeBuilding({id:'bar',name:'The Lantern',x:15,z:30,w:12,d:10,door:'W',color:0x5d4a3c,talisman:true,sign:'THE LANTERN',porch:true,chimney:4,doorColor:0x2a1e16,
+  interior(b){ F.counter(b,0,9.2,7,0.9); for(let u=-2.7;u<=2.7;u+=1.35) F.stool(b,u,8.2);
+    fbox(b,0,b.D-0.4,7,0.45,2.2,M.wood,0,true); for(let i=0;i<14;i++) fbox(b,-3+i*0.46,b.D-0.4,0.12,0.12,0.32,M.bottle,1.05+(i%2)*0.8);
+    for(const [u,v] of [[-3.4,3.2],[3.4,3.2],[-3.4,6]]){ F.table(b,u,v,1.1,1.1); F.chair(b,u+0.75,v,1); F.chair(b,u-0.75,v,-1); }
+    F.fireplace(b,4); F.rug(b,0,4.5,3,3,M.rugR); fbox(b,4.6,6.2,1.3,0.6,1.2,M.dark,0,true); F.lamp(b,-3.4,3.2); F.lamp(b,3.4,3.2); }});
+makeBuilding({id:'emptyHouse',name:'Empty house',x:14,z:56,w:8,d:8,door:'W',color:0x5f6e62,talisman:false,porch:true,chimney:-2,
+  interior(b){ F.bed(b,2.5,6.6,1.5,2.0,M.blanketG); F.table(b,-1.5,3.6,1.2,0.8); F.crate(b,-3,7); F.rug(b,0,4,2,2,M.rugB); }});
+// The farm, east of town
+makeBuilding({id:'farmhouse',name:'Tanner farmhouse',x:62,z:-6,w:10,d:8,door:'W',color:0xa8946a,talisman:true,porch:true,chimney:-3,roofMat:M.roofRed,doorColor:0x5a3a24,
+  interior(b){ F.table(b,0,3.6,2.2,1.0); for(const s of [-1,1]){ F.chair(b,s*0.6,4.4,1); F.chair(b,s*0.6,2.8,-1); }
+    F.bed(b,-3.4,7,1.8,1.9,M.blanketY); F.bed(b,3.6,7,1.0,1.8,M.blanketR); F.bed(b,2.3,7,1.0,1.8,M.blanketB); F.fireplace(b,0);
+    F.stove(b,-3.4,3); F.counter(b,-3.4,4.3,0.8,1.4); F.rug(b,0,5.6,2.4,1.4,M.rugG); }});
+makeBuilding({id:'barn',name:'Barn',x:78,z:18,w:12,d:14,door:'W',color:0x7a2a22,talisman:false,h:5,roofH:3.6,trim:M.trimW,shutter:M.trimW,doorColor:0x6a241e,
+  interior(b){ for(let v=3;v<=10;v+=3.5) fbox(b,-3.2,v,3.6,0.12,1.3,M.wood,0,true); F.hay(b,4,9); F.hay(b,4,9,1.2,0.6,0.55); F.hay(b,4.2,7.4); F.hay(b,2.6,10.6);
+    F.crate(b,4.4,3.2); F.crate(b,4.4,4.2); fbox(b,1,11,1.6,2.6,1.2,M.metal,0,true); }});
+
+// diner extras: note on the counter
+{ const p=Luv(B.diner,0.6,10.6); const n=new THREE.Mesh(new THREE.PlaneGeometry(0.35,0.45),M.paper); n.rotation.x=-Math.PI/2; n.rotation.z=0.3; n.position.set(p.x,1.06,p.z); scene.add(n);
+  addInteract({x:p.x,y:1.06,z:p.z,r:2.4,label:()=>'Read the note on the counter',act:()=>openNote('Left on the counter',
+    `If you're reading this, you came in off the road like the rest of us. Don't bother driving out. The road brings you back around. Every time.<br><br>
     <b>The rules.</b> Be inside before dark. Only trust a room with a stone hanging by the door. Don't open up for anybody, no matter what they sound like or who they say they are.<br><br>
-    Old Hal said the town keeps four things out in the trees, and if you bring all four to the waystone by the north sign, the road lets you go. He drew a map. It's on the wall.<br><br>
-    Hal went out to get them. Hal didn't come back. <br><br>— M.`,'counter')});
-  // Hal's map on the north wall
-  const mp=new THREE.Mesh(new THREE.PlaneGeometry(0.9,0.7), new THREE.MeshBasicMaterial({color:0xc9b98f})); mp.position.set(-13,1.7,-4.83); scene.add(mp);
-  addInteract({x:-13,y:1.7,z:-4.83,r:2.6,enabled:()=>!S.hasMap,label:()=>"Take Hal's map",act:()=>{ S.hasMap=true; mp.visible=false; sfx.pick();
-    showMsg("Hal's map. Four marks in the woods, one in each corner. Press M to look at it."); }});
-}
+    There's coffee in the pot. I'm usually around in the daytime. Come find me.<br><br>— M.`,'counter')}); }
+// Hal's map and notebook
+let halMapMesh;
+{ const b=B.halHouse, p=Luv(b,-2.9,4.6);
+  halMapMesh=new THREE.Mesh(new THREE.PlaneGeometry(0.7,0.55),new THREE.MeshBasicMaterial({color:0xc9b98f})); halMapMesh.rotation.x=-Math.PI/2; halMapMesh.rotation.z=0.2; halMapMesh.position.set(p.x,0.8,p.z); scene.add(halMapMesh);
+  addInteract({x:p.x,y:0.8,z:p.z,r:2.4,enabled:()=>!S.hasMap,label:()=>"Take the hand-drawn map",act:()=>{ S.hasMap=true; halMapMesh.visible=false; sfx.pick(); learn('marks');
+    showMsg("A map of the town and the woods around it, in pencil. Four places in the trees are marked with an X. Press M to look at it."); }});
+  const q=Luv(b,-2.3,4.4); const nb=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.03,0.3),M.blanketR); nb.position.set(q.x,0.81,q.z); scene.add(nb);
+  addInteract({x:q.x,y:0.82,z:q.z,r:2.2,label:()=>"Read Hal's notebook",act:openNoteFn("Hal Cobb's notebook",
+    `<i>Day 31.</i> The road loops. I measured it. Same sign, same crack in the asphalt, every single time.<br><br>
+    <i>Day 40.</i> The town keeps things. I've found four places out in the trees that feel kept. I marked them on the map so I wouldn't lose them.<br><br>
+    <i>Day 52.</i> The stone under the NOW LEAVING sign has four hollows worn into the top. Four. I am not a superstitious man.<br><br>
+    <i>Day 58.</i> Going back out to the marks tomorrow. If I'm right, the stone wants whatever the trees are hiding. If I'm wrong, tell Ruth's girl I'm sorry about the drawing.<br><br>
+    <span style="opacity:.6">The rest of the pages are blank.</span>`,'hal',['hal','marks','waystone'])}); }
 // chapel altar + spare talisman
 let spareTal;
-{ box(1.4,1.0,2.4,M.stone,-18.2,0.5,52); addBox(-18.2,52,1.4,2.4);
-  spareTal=makeTalismanMesh(); spareTal.position.set(-18.2,1.08,52); spareTal.rotation.x=-Math.PI/2; scene.add(spareTal);
-  addInteract({x:-18.2,y:1.1,z:52,r:2.6,enabled:()=>spareTal.visible,label:()=> S.carry?'A spare talisman (your hands are full)':'Take the spare talisman',act:()=>{
+{ const b=B.chapel, p=Luv(b,0,b.D-1.4);
+  spareTal=makeTalismanMesh(); spareTal.position.set(p.x,1.08,p.z); spareTal.rotation.x=-Math.PI/2; scene.add(spareTal);
+  addInteract({x:p.x,y:1.1,z:p.z,r:2.6,enabled:()=>spareTal.visible,label:()=> S.carry?'A spare talisman (your hands are full)':'Take the spare talisman',act:()=>{
     if(S.carry){ showMsg('You can only carry one stone at a time.'); return; }
     spareTal.visible=false; S.carry=true; sfx.pick(); showMsg('A spare stone, still on its cord. You could hang it anywhere you need to sleep.'); }});
-  addWallNote(-19.3,1.6,49.5,Math.PI/2,'Pinned behind the altar',"Spare stone. Hang it where you'll be when it gets dark. Out in the trees there's nothing to keep you but what you bring.",'chapel');
+  const w=Luv(b,-1.6,b.D-0.17); const pn=new THREE.Mesh(new THREE.PlaneGeometry(0.4,0.5),M.paper); pn.position.set(w.x,1.6,w.z); pn.rotation.y=faceDoor(b); scene.add(pn);
+  addInteract({x:w.x,y:1.6,z:w.z,r:2.4,label:()=>'Read the note',act:()=>openNote('Pinned behind the altar',"Spare stone. Hang it where you'll be when it gets dark. Out in the trees there's nothing to keep you but what you bring.",'chapel')});
   // steeple
-  box(2.2,3,2.2,new THREE.MeshLambertMaterial({color:0xb0aa9c}),-15,7.7,52);
-  const sp=new THREE.Mesh(new THREE.ConeGeometry(1.7,4,4),M.roof); sp.rotation.y=Math.PI/4; sp.position.set(-15,11.2,52); scene.add(sp);
+  sbox(2.2,3,2.2,b.wallMat,-15,b.h+3.2,56); sgeo(new THREE.ConeGeometry(1.7,4,4),M.roof,new THREE.Matrix4().makeTranslation(-15,b.h+6.7,56).multiply(new THREE.Matrix4().makeRotationY(Math.PI/4)));
+  sbox(0.1,1.2,0.1,M.trimD,-15,b.h+9.2,56); sbox(0.6,0.1,0.1,M.trimD,-15,b.h+9.4,56);
 }
-// beds in houses
-for(const b of buildings.slice(1,6)){ const bx=b.x-b.n[0]*(b.w/2-1.2), bz=b.z+ (b.d/2-1.4);
-  box(1.6,0.5,2.2,M.fabric,bx,0.25,bz); addBox(bx,bz,1.6,2.2); }
 
-// street lamps
-const lampBulbs=[];
-for(const zz of [-50,-20,10,40,70]) for(const side of [-1,1]){ if((zz/10+side)%2===0) continue;
-  const lx=side*5.2; box(0.12,4.2,0.12,M.metal,lx,2.1,zz); box(0.9,0.08,0.08,M.metal,lx-side*0.4,4.2,zz);
-  const bl=new THREE.Mesh(new THREE.SphereGeometry(0.14,8,6),M.bulb); bl.position.set(lx-side*0.8,4.08,zz); scene.add(bl); addCircle(lx,zz,0.12); }
+// street lamps, mailboxes, benches, the farm road
+for(const [lx,lz] of [[-5.2,-52],[5.2,-36],[-5.2,-12],[5.2,16],[-5.2,40],[5.2,64],[-5.2,74]]){ const side=Math.sign(lx);
+  sbox(0.14,4.2,0.14,M.metal,lx,2.1,lz); sbox(0.9,0.08,0.08,M.metal,lx-side*0.4,4.2,lz);
+  const bl=new THREE.Mesh(new THREE.SphereGeometry(0.14,8,6),M.bulb); bl.position.set(lx-side*0.8,4.08,lz); scene.add(bl); addCircle(lx,lz,0.12); }
+for(const b of buildings){ if(b.x>40) continue; const side=Math.sign(b.x); const mx=side*4.7, mz=b.doorC.z+3.6;
+  if(['diner','chapel','bar','station','clinic'].includes(b.id)) continue;
+  sbox(0.1,1.1,0.1,M.wood,mx,0.55,mz); sbox(0.28,0.25,0.5,M.metal,mx,1.2,mz); addCircle(mx,mz,0.1); }
+for(const [bx,bz,ry] of [[-6.5,49,0],[-6.5,63,0],[6.6,21,0]]){ sbox(0.5,0.08,1.8,M.wood,bx,0.45,bz,ry); sbox(0.08,0.5,1.8,M.wood,bx-0.22*Math.sign(bx),0.7,bz,ry); sbox(0.4,0.45,0.08,M.dark,bx,0.22,bz-0.8); sbox(0.4,0.45,0.08,M.dark,bx,0.22,bz+0.8); addBox(bx,bz,0.5,1.8); }
+{ const path=new THREE.Mesh(new THREE.PlaneGeometry(53,2.6),M.dirt); path.rotation.x=-Math.PI/2; path.position.set(30.5,0.015,-6); scene.add(path);
+  const yard=new THREE.Mesh(new THREE.PlaneGeometry(14,30),M.dirt); yard.rotation.x=-Math.PI/2; yard.position.set(52,0.012,6); scene.add(yard); }
+
+// farm fence, fields and a scarecrow
+const FARM={minX:46,maxX:92,minZ:-16,maxZ:42};
+{ const gates=[{side:'W',a:-9.5,b:-2.5},{side:'E',a:10,b:16},{side:'N',a:66,b:72},{side:'S',a:56,b:62}];
+  const run=(side,a0,a1)=>{ const L=a1-a0; if(L<=0.2) return; const mid=(a0+a1)/2;
+    if(side==='W'||side==='E'){ const x=side==='W'?FARM.minX:FARM.maxX; for(const y of [0.55,1.05]) sbox(0.08,0.1,L,M.woodLight,x,y,mid); addBox(x,mid,0.2,L); for(let p=a0;p<=a1+0.01;p+=2.4) sbox(0.14,1.3,0.14,M.wood,x,0.65,p); }
+    else { const z=side==='N'?FARM.minZ:FARM.maxZ; for(const y of [0.55,1.05]) sbox(L,0.1,0.08,M.woodLight,mid,y,z); addBox(mid,z,L,0.2); for(let p=a0;p<=a1+0.01;p+=2.4) sbox(0.14,1.3,0.14,M.wood,p,0.65,z); } };
+  for(const side of ['W','E','N','S']){ const [lo,hi]=side==='W'||side==='E'?[FARM.minZ,FARM.maxZ]:[FARM.minX,FARM.maxX]; const g=gates.find(g=>g.side===side); run(side,lo,g.a); run(side,g.b,hi); }
+  const crops=[]; for(let x=50;x<=68;x+=1.6) for(let z=8;z<=38;z+=0.9) crops.push([x+R()*0.2,z+R()*0.2,0.6+R()*0.5]);
+  const geo=new THREE.ConeGeometry(0.28,1,5); geo.translate(0,0.5,0);
+  const im=new THREE.InstancedMesh(geo,M.crop,crops.length); const mm=new THREE.Matrix4(), c=new THREE.Color();
+  crops.forEach(([x,z,s],i)=>{ mm.compose(new THREE.Vector3(x,0,z),new THREE.Quaternion(),new THREE.Vector3(1,s*1.4,1)); im.setMatrixAt(i,mm); c.setRGB(0.35+R()*0.25,0.42+R()*0.15,0.15); im.setColorAt(i,c); });
+  scene.add(im);
+  for(let x=50;x<=68;x+=1.6){ const row=new THREE.Mesh(new THREE.PlaneGeometry(0.9,30.5),M.dirt); row.rotation.x=-Math.PI/2; row.position.set(x,0.01,23); scene.add(row); }
+  // scarecrow
+  sbox(0.12,2.4,0.12,M.wood,59,1.2,24); sbox(1.6,0.1,0.1,M.wood,59,1.9,24); sbox(0.5,0.7,0.3,M.crate,59,1.7,24); sbox(0.34,0.36,0.34,M.hay,59,2.3,24); sbox(0.6,0.06,0.6,M.hay,59,2.5,24);
+  // trough
+  sbox(2,0.6,0.7,M.wood,53,0.3,-13); addBox(53,-13,2,0.7);
+}
 
 // welcome signs and the waystone
 const WELCOME=[{t:'WELCOME TO',f:'22px Georgia'},{t:"HARROW'S END",f:'bold 40px Georgia'},{t:'pop. —',f:'18px Georgia'}];
 const LEAVING=[{t:'NOW LEAVING',f:'22px Georgia'},{t:"HARROW'S END",f:'bold 40px Georgia'},{t:'come back soon',f:'italic 18px Georgia'}];
 function makeSign(x,z,front,back){ const g=new THREE.Group(); g.position.set(x,0,z); scene.add(g);
   box(0.12,2.2,0.12,M.wood,-1.3,1.1,0,g); box(0.12,2.2,0.12,M.wood,1.3,1.1,0,g); box(3,1.2,0.06,M.wood,0,1.9,0,g);
-  const mk=(lines,rot,oz)=>{ const p=new THREE.Mesh(new THREE.PlaneGeometry(2.9,1.1),new THREE.MeshLambertMaterial({map:textTex(lines,384,146,'#e5ddc6','#2b2419','30px Georgia')})); p.position.set(0,1.9,oz); p.rotation.y=rot; g.add(p); };
+  const mk=(lines,rot,oz)=>{ const p=new THREE.Mesh(new THREE.PlaneGeometry(2.9,1.1),lam(0xffffff,{map:textTex(lines,384,146,'#e5ddc6','#2b2419','30px Georgia')})); p.position.set(0,1.9,oz); p.rotation.y=rot; g.add(p); };
   mk(front,0,0.035); mk(back,Math.PI,-0.035); addCircle(x,z,0.6); }
-// south sign: read "welcome" when arriving from the south, "leaving" when walking out of town
 makeSign(-6.5,82,WELCOME,LEAVING);
-// north sign: read "leaving" from town, "welcome" when the road brings you back around
 makeSign(-6.5,-76,LEAVING,WELCOME);
 const wayGems=[];
 { const g=new THREE.Group(); g.position.set(LOC.waystone.x,0,LOC.waystone.z); scene.add(g);
@@ -420,19 +593,20 @@ const wayGems=[];
   for(let i=0;i<4;i++){ const a=i/4*Math.PI*2; const gm=new THREE.Mesh(new THREE.SphereGeometry(0.09,8,6),new THREE.MeshBasicMaterial({color:0x222222}));
     gm.position.set(Math.cos(a)*0.32,1.21,Math.sin(a)*0.32); g.add(gm); wayGems.push(gm); }
   addInteract({x:LOC.waystone.x,y:1.1,z:LOC.waystone.z,r:2.6,
-    label:()=> S.exitOpen?'The waystone hums':(S.relics.length?`Set ${S.relics.length===1?'the relic':'the relics'} into the stone`:'Examine the waystone'),
+    label:()=> S.exitOpen?'The waystone hums':(S.relics.length?`Set ${S.relics.length===1?'it':'them'} into the stone`:'Examine the stone'),
     act:()=>{
       if(S.exitOpen){ showMsg(isDaylight()?'The road north is open. Walk it before the light goes.':'The road will only let you go in daylight.'); return; }
-      if(!S.relics.length){ openNote('The waystone','A waist-high stone with four hollows worn into its top, like something was meant to sit in each one. The sign behind it says NOW LEAVING. Someone has scratched underneath: <i>not without all four.</i>','waystone'); return; }
+      if(!S.relics.length){ openNote('A stone by the road','A waist-high stone right under the NOW LEAVING sign. Four hollows are worn into its top, smooth as if something used to sit in each one. '+(S.placed?`${S.placed} of them hold something now.`:'They are all empty.'),'waystone'); learn('waystone'); return; }
+      learn('waystone');
       for(const r of S.relics){ wayGems[S.placed].material.color.setHex(0x9fe0cc); S.placed++; }
       S.relics=[]; sfx.ward();
-      if(S.placed>=4){ S.exitOpen=true; sfx.bell(); showMsg('The fourth relic clicks into place. The stone starts to hum, and far up the road the fog thins. Leave in daylight.',8); }
-      else showMsg(`${S.placed} of 4 hollows filled. The stone is warm.`);
+      if(S.placed>=4){ S.exitOpen=true; learn('exit'); sfx.bell(); showMsg('The fourth one settles into its hollow. The stone starts to hum, and far up the road the fog thins. Leave in daylight.',8); }
+      else showMsg(`It fits the hollow exactly. ${S.placed} of 4 filled. The stone is warm.`);
     }});
 }
 // wrecked car south of town
 { const g=new THREE.Group(); g.position.set(-6,0,96); g.rotation.y=0.5; scene.add(g);
-  const carMat=new THREE.MeshLambertMaterial({color:0x5a2f2a});
+  const carMat=lam(0x5a2f2a);
   box(1.9,0.8,4.2,carMat,0,0.65,0,g); box(1.7,0.6,2.2,carMat,0,1.35,-0.2,g);
   for(const [wx,wz] of [[-.95,1.3],[.95,1.3],[-.95,-1.3],[.95,-1.3]]){ const wh=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.35,0.25,10),M.dark); wh.rotation.z=Math.PI/2; wh.position.set(wx,0.35,wz); g.add(wh); }
   addCircle(-6,96,2.1);
@@ -440,30 +614,28 @@ const wayGems=[];
 }
 
 // ---------- forest locations ----------
-// The bus
 const tokens=[];
 { const {x,z}=LOC.bus; const g=new THREE.Group(); g.position.set(x,0,z); scene.add(g);
-  const busMat=new THREE.MeshLambertMaterial({color:0x8a6a2a});
+  const busMat=lam(0x8a6a2a);
   box(9.5,2.6,2.7,busMat,0,1.55,0,g); box(9.6,0.5,2.75,M.dark,0,0.3,0,g);
-  const winM=new THREE.MeshLambertMaterial({color:0x14181b});
+  const winM=lam(0x14181b);
   for(let i=0;i<6;i++) for(const s of [-1,1]) box(1.1,0.7,0.02,winM,-3.6+i*1.4,2.1,s*1.36,g);
   box(0.9,1.8,0.02,M.dark,3.6,1.2,1.37,g);
   addBox(x,z,9.6,2.8);
-  addNotePost(x+3.6,z+3,0.2,'Taped to the bus door','Three of my passengers ran into the trees when we came off the road. They\'re still out there. Little carved things now, but they\'re mine.<br><br>Bring all three back and you can have what I kept for the trip home.','bus');
+  addNotePost(x+3.6,z+3,0.2,'Taped to the bus door','Three of my passengers ran into the trees when we came off the road. They\'re still out there. Little carved things now, but they\'re mine.<br><br>Bring all three back and you can have what I kept for the trip home.','bus',['bus']);
   for(let i=0;i<3;i++){ let tx,tz; do{ const a=Math.random()*Math.PI*2, r=rnd(14,34); tx=x+Math.cos(a)*r; tz=z+Math.sin(a)*r; } while(tokens.some(t=>Math.hypot(t.x-tx,t.z-tz)<10));
     const tg=new THREE.Group(); tg.position.set(tx,0,tz); scene.add(tg);
-    const woodGlow=new THREE.MeshLambertMaterial({color:0xa0784c,emissive:0x4a2a10,emissiveIntensity:0.6});
+    const woodGlow=lam(0xa0784c,{emissive:0x4a2a10,emissiveIntensity:0.6});
     const body=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.11,0.32,8),woodGlow); body.position.y=0.16; tg.add(body);
     const head=new THREE.Mesh(new THREE.SphereGeometry(0.08,8,6),woodGlow); head.position.y=0.38; tg.add(head);
     const tk={x:tx,z:tz,g:tg,got:false}; tokens.push(tk);
     addInteract({x:tx,y:0.3,z:tz,r:2.3,enabled:()=>!tk.got,label:()=>'Pick up the carved figure',act:()=>{ tk.got=true; tg.visible=false; S.tokens++; sfx.pick();
-      showMsg(S.tokens<3?`A small carved figure, warm to the touch. ${S.tokens} of 3.`:'The last of them. Take them back to the bus.'); }});
+      showMsg(S.tokens<3?`A small carved figure of a person, warm to the touch. ${S.know.bus?`${S.tokens} of 3.`:''}`:(S.know.bus?'The last of them. Take them back to the bus.':'Another carved figure. Three of them now. They seem to lean toward the northwest.')); }});
   }
-  addInteract({x:x+3.6,y:1.2,z:z+1.5,r:2.6,enabled:()=>!S.busDone,label:()=>S.tokens>=3?'Return the passengers':'The bus door',act:()=>{
-    if(S.tokens<3){ showMsg(`The seats are empty. ${3-S.tokens} carved figure${3-S.tokens===1?'':'s'} still out in the trees.`); return; }
-    S.busDone=true; grantRelic('soldier','You set the three figures on the front seats. Something drops from the driver\'s visor: a dented tin soldier.'); }});
+  addInteract({x:x+3.6,y:1.2,z:z+1.5,r:2.6,enabled:()=>!S.busDone,label:()=>S.tokens>=3?'Set the figures on the seats':'The bus door',act:()=>{
+    if(S.tokens<3){ showMsg(`Rows of empty seats.${S.know.bus?` ${3-S.tokens} carved figure${3-S.tokens===1?'':'s'} still out in the trees.`:' Someone has scratched tally marks into the dashboard: three of them.'}`); learn('bus'); return; }
+    S.busDone=true; learn('bus'); grantRelic('soldier','You set the three figures on the front seats. Something drops from the driver\'s visor: a dented tin soldier.'); }});
 }
-// The stones
 const stoneObjs=[]; const STONE_ORDER=['eye','hand','moon','tooth','door'];
 function glyphTex(type){ return canvasTex(128,128,(g)=>{ g.fillStyle='#5b5c58'; g.fillRect(0,0,128,128); g.strokeStyle='#ece6d6'; g.fillStyle='#ece6d6'; g.lineWidth=7; g.lineCap='round'; g.lineJoin='round'; g.beginPath();
   if(type==='eye'){ g.ellipse(64,64,44,22,0,0,Math.PI*2); g.stroke(); g.beginPath(); g.arc(64,64,11,0,Math.PI*2); g.fill(); }
@@ -474,47 +646,49 @@ function glyphTex(type){ return canvasTex(128,128,(g)=>{ g.fillStyle='#5b5c58'; 
 }); }
 { const {x,z}=LOC.stones; const shuffled=STONE_ORDER.slice().sort(()=>Math.random()-0.5);
   shuffled.forEach((type,i)=>{ const a=i/5*Math.PI*2+0.3, sx=x+Math.cos(a)*7, sz=z+Math.sin(a)*7;
-    const mat=new THREE.MeshLambertMaterial({color:0x6d6e69,emissive:0x7fd6ff,emissiveIntensity:0});
+    const mat=lam(0x6d6e69,{emissive:0x7fd6ff,emissiveIntensity:0});
     const st=new THREE.Mesh(new THREE.BoxGeometry(1.3,2.6,0.6),mat); st.position.set(sx,1.3,sz); st.lookAt(x,1.3,z); scene.add(st);
-    const gl=new THREE.Mesh(new THREE.PlaneGeometry(0.9,0.9),new THREE.MeshLambertMaterial({map:glyphTex(type),emissive:0x7fd6ff,emissiveIntensity:0}));
+    const gl=new THREE.Mesh(new THREE.PlaneGeometry(0.9,0.9),lam(0xffffff,{map:glyphTex(type),emissive:0x7fd6ff,emissiveIntensity:0}));
     gl.position.set(0,0.35,0.31); st.add(gl);
     addCircle(sx,sz,0.85);
     const so={type,mat,gl,lit:false,x:sx,z:sz}; stoneObjs.push(so);
     const ix=sx+(x-sx)*0.12, iz=sz+(z-sz)*0.12;
     addInteract({x:ix,y:1.5,z:iz,r:2.6,enabled:()=>!S.stonesDone && !so.lit,label:()=>`Touch the ${type} stone`,act:()=>touchStone(so)});
   });
-  box(1.2,0.5,1.2,M.stone,x,0.25,z); addBox(x,z,1.2,1.2);
-  addNotePost(x+11,z+2,Math.PI/2,'Nailed to a stake','Hal woke them once. He wrote the order on his hand so he wouldn\'t forget:<br><br><i>the eye that watches, the hand that waves goodbye, the moon that hides, the tooth that bites, and last, the door that never opens.</i><br><br>Get it wrong and they all go back to sleep.','stones');
+  sbox(1.2,0.5,1.2,M.stone,x,0.25,z); addBox(x,z,1.2,1.2);
+  addNotePost(x+11,z+2,Math.PI/2,'Nailed to a stake','Hal woke them once. He wrote the order on his hand so he wouldn\'t forget:<br><br><i>the eye that watches, the hand that waves goodbye, the moon that hides, the tooth that bites, and last, the door that never opens.</i><br><br>Get it wrong and they all go back to sleep.','stones',['stones','stoneOrder']);
 }
 function touchStone(so){
+  learn('stones');
   if(so.type===STONE_ORDER[S.stoneSeq]){ so.lit=true; so.mat.emissiveIntensity=0.35; so.gl.material.emissiveIntensity=0.9; S.stoneSeq++; sfx.chime(S.stoneSeq);
     if(S.stoneSeq>=5){ S.stonesDone=true; grantRelic('glyph','All five stones are lit. The flat stone in the middle cracks open, and inside is a smooth black stone marked with an eye.'); }
   } else { for(const s of stoneObjs){ s.lit=false; s.mat.emissiveIntensity=0; s.gl.material.emissiveIntensity=0; } S.stoneSeq=0; sfx.thud(); showMsg('The light drains out of every stone at once. Wrong order.'); }
 }
-// Radio tower
 const RADIO_FREQ = Math.round(rnd(89,106)*10)/10;
+const radioShack = makeBuilding({id:'shack',name:'Radio shack',x:-162,z:150,w:5,d:4.4,door:'W',color:0x58605a,talisman:false,h:2.8,roofH:1.2});
+const wellShed = makeBuilding({id:'shed',name:'Well shed',x:171,z:152,w:4.4,d:4.4,door:'W',color:0x5d5246,talisman:false,h:2.8,roofH:1.4,interior(b){ F.crate(b,-1.2,3.4); F.hay(b,1.1,3.6,1.0,0.6); }});
 let towerLight;
 { const {x,z}=LOC.radio; const H=34;
   for(const [dx,dz] of [[-2,-2],[2,-2],[-2,2],[2,2]]){ const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.12,H,5),M.metal); leg.position.set(x+dx*0.6,H/2,z+dz*0.6); leg.rotation.z=-dx*0.02; leg.rotation.x=dz*0.02; scene.add(leg); addCircle(x+dx*0.7,z+dz*0.7,0.25); }
-  for(let y=3;y<H;y+=4){ const w=1.2*(1-y/H*0.3)*2; box(w,0.06,0.06,M.metal,x,y,z-1.1); box(w,0.06,0.06,M.metal,x,y,z+1.1); box(0.06,0.06,w,M.metal,x-1.1,y,z); box(0.06,0.06,w,M.metal,x+1.1,y,z); }
+  for(let y=3;y<H;y+=4){ const w=1.2*(1-y/H*0.3)*2; sbox(w,0.06,0.06,M.metal,x,y,z-1.1); sbox(w,0.06,0.06,M.metal,x,y,z+1.1); sbox(0.06,0.06,w,M.metal,x-1.1,y,z); sbox(0.06,0.06,w,M.metal,x+1.1,y,z); }
   towerLight=new THREE.Mesh(new THREE.SphereGeometry(0.3,8,6),new THREE.MeshBasicMaterial({color:0xff2a1a})); towerLight.position.set(x,H+0.3,z); scene.add(towerLight);
-  const s=radioShack; box(1.6,0.85,0.8,M.wood,s.x+1.4,0.42,s.z); addBox(s.x+1.4,s.z,1.6,0.8);
-  box(0.9,0.45,0.45,M.dark,s.x+1.4,1.08,s.z); const dial=new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.14),new THREE.MeshBasicMaterial({color:0xffa53a})); dial.position.set(s.x+1.4-0.23,1.12,s.z); dial.rotation.y=-Math.PI/2; scene.add(dial);
-  addInteract({x:s.x+1.15,y:1.1,z:s.z,r:2.4,enabled:()=>!S.radioDone,label:()=>'Use the receiver',act:openTuner});
-  addWallNote(s.x+0.3,1.6,s.z-2.04,0,'Written on the wall in pencil',`Static on every number but one. She's still broadcasting on <b>${RADIO_FREQ.toFixed(1)}</b>. She keeps saying the same thing. Listen to the end.`,'radio');
+  const s=radioShack; const dp=Luv(s,0,3.4); F.table(s,0,3.4,1.8,0.8);
+  sbox(0.45,0.45,0.9,M.dark,dp.x,0.99,dp.z); const dial=new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.14),new THREE.MeshBasicMaterial({color:0xffa53a})); dial.position.set(dp.x-0.23,1.03,dp.z); dial.rotation.y=-Math.PI/2; scene.add(dial);
+  addInteract({x:dp.x-0.25,y:1.0,z:dp.z,r:2.4,enabled:()=>!S.radioDone,label:()=>'Use the receiver',act:()=>{ learn('radio'); openTuner(); }});
+  const wp=Luv(s,-1.5,0.2); const pn=new THREE.Mesh(new THREE.PlaneGeometry(0.4,0.5),M.paper); pn.position.set(s.inner.minX+0.4,1.6,s.inner.minZ+0.02); scene.add(pn);
+  addInteract({x:s.inner.minX+0.4,y:1.6,z:s.inner.minZ+0.02,r:2.4,label:()=>'Read the writing on the wall',act:openNoteFn('Written on the wall in pencil',`Static on every number but one. She's still broadcasting on <b>${RADIO_FREQ.toFixed(1)}</b>. She keeps saying the same thing. Listen to the end.`,'radio',['radio','freq'])});
 }
-// The well
 let crankMesh;
 { const {x,z}=LOC.well;
-  const ring=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.3,0.9,14,1,true),new THREE.MeshLambertMaterial({color:0x6b6c68,side:THREE.DoubleSide})); ring.position.set(x,0.45,z); scene.add(ring);
+  const ring=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.3,0.9,14,1,true),lam(0x6b6c68,{side:THREE.DoubleSide})); ring.position.set(x,0.45,z); scene.add(ring);
   const water=new THREE.Mesh(new THREE.CircleGeometry(1.15,14),new THREE.MeshBasicMaterial({color:0x050608})); water.rotation.x=-Math.PI/2; water.position.set(x,0.3,z); scene.add(water);
-  box(0.12,2.2,0.12,M.wood,x-1.1,1.1,z); box(0.12,2.2,0.12,M.wood,x+1.1,1.1,z); box(2.5,0.12,0.12,M.wood,x,2.1,z);
-  const rf=new THREE.Mesh(new THREE.ConeGeometry(1.9,0.9,4),M.roof); rf.rotation.y=Math.PI/4; rf.position.set(x,2.6,z); scene.add(rf);
+  sbox(0.12,2.2,0.12,M.wood,x-1.1,1.1,z); sbox(0.12,2.2,0.12,M.wood,x+1.1,1.1,z); sbox(2.5,0.12,0.12,M.wood,x,2.1,z);
+  sgeo(new THREE.ConeGeometry(1.9,0.9,4),M.roof,new THREE.Matrix4().makeTranslation(x,2.6,z).multiply(new THREE.Matrix4().makeRotationY(Math.PI/4)));
   crankMesh=box(0.06,0.5,0.06,M.iron,x+1.3,2.1,z); crankMesh.geometry.translate(0,-0.22,0);
   addCircle(x,z,1.35);
   addInteract({x:x+1.2,y:1.4,z,r:2.6,hold:true,enabled:()=>!S.wellDone,label:()=> isNight()?'Hold E to turn the crank':'Turn the crank',
-    act:()=>{ if(!isNight()) showMsg('The rope runs down into black water and won\'t budge. The note said after dark.'); }});
-  addNotePost(x-3.5,z-2.5,-Math.PI/2,'Carved into the post','THE WELL GIVES ONLY AFTER DARK.<br><br>Beneath it, in smaller letters someone added later: <i>they hear the crank. Bring a stone for the shed.</i>','well');
+    act:()=>{ learn('well'); if(!isNight()) showMsg(S.know.wellNight?'The rope runs down into black water and won\'t budge. Not in daylight.':'The rope runs down into black water and won\'t budge an inch.'); }});
+  addNotePost(x-3.5,z-2.5,-Math.PI/2,'Carved into the post','THE WELL GIVES ONLY AFTER DARK.<br><br>Beneath it, in smaller letters someone added later: <i>they hear the crank. Bring a stone for the shed.</i>','well',['well','wellNight']);
 }
 
 // ---------- forest ----------
@@ -522,6 +696,7 @@ const clearings=[LOC.bus,LOC.stones,LOC.radio,LOC.well].map(l=>({x:l.x,z:l.z,r:2
 function treeOK(x,z){
   if(Math.abs(x)<9) return false;
   if(Math.abs(x)<44 && Math.abs(z)<90) return false;
+  if(x>40 && x<100 && z>-26 && z<50) return false;
   for(const c of clearings) if(Math.hypot(x-c.x,z-c.z)<c.r) return false;
   for(const t of tokens) if(Math.hypot(x-t.x,z-t.z)<2) return false;
   if(Math.hypot(x+6,z-96)<5) return false;
@@ -529,7 +704,6 @@ function treeOK(x,z){
 }
 const treePos=[];
 for(let i=0;i<5200 && treePos.length<1900;i++){ const x=(R()*2-1)*WORLD, z=(R()*2-1)*WORLD; if(!treeOK(x,z)) continue; treePos.push({x,z,s:0.75+R()*0.8,c:R()}); }
-// copy edge trees across the seam so the wrap is not visible
 const MARGIN=70, allTrees=treePos.slice();
 for(const t of treePos){ const xs=[0], zs=[0];
   if(t.x>WORLD-MARGIN) xs.push(-2*WORLD); if(t.x<-WORLD+MARGIN) xs.push(2*WORLD);
@@ -540,15 +714,52 @@ for(const t of treePos) addCircle(t.x,t.z,0.3*t.s);
   const c1=new THREE.ConeGeometry(1.9,4.6,7); c1.translate(0,4.6,0);
   const c2=new THREE.ConeGeometry(1.35,3.4,7); c2.translate(0,6.9,0);
   const n=allTrees.length;
-  const trunks=new THREE.InstancedMesh(trunkG,new THREE.MeshLambertMaterial({color:0x2e241c}),n);
-  const f1=new THREE.InstancedMesh(c1,new THREE.MeshLambertMaterial({color:0xffffff}),n);
-  const f2=new THREE.InstancedMesh(c2,new THREE.MeshLambertMaterial({color:0xffffff}),n);
+  const trunks=new THREE.InstancedMesh(trunkG,lam(0x2e241c),n);
+  const f1=new THREE.InstancedMesh(c1,lam(0xffffff),n);
+  const f2=new THREE.InstancedMesh(c2,lam(0xffffff),n);
   const m=new THREE.Matrix4(), q=new THREE.Quaternion(), col=new THREE.Color();
-  allTrees.forEach((t,i)=>{ q.setFromAxisAngle(new THREE.Vector3(0,1,0),t.c*6.28); m.compose(new THREE.Vector3(t.x,0,t.z),q,new THREE.Vector3(t.s,t.s*(0.9+t.c*0.3),t.s));
+  allTrees.forEach((t,i)=>{ q.setFromAxisAngle(UP,t.c*6.28); m.compose(new THREE.Vector3(t.x,0,t.z),q,new THREE.Vector3(t.s,t.s*(0.9+t.c*0.3),t.s));
     trunks.setMatrixAt(i,m); f1.setMatrixAt(i,m); f2.setMatrixAt(i,m);
     col.setRGB(0.11+t.c*0.05,0.17+t.c*0.06,0.12+t.c*0.03); f1.setColorAt(i,col); col.multiplyScalar(1.1); f2.setColorAt(i,col); });
   scene.add(trunks,f1,f2);
 }
+buildBatches();
+
+// ---------- people (and things that look like people) ----------
+function makeHumanoid(o){
+  const g=new THREE.Group();
+  const shirt=lam(o.shirt), pants=lam(o.pants), skin=lam(o.skin,{emissive:o.grin?0x2e2620:0x16110d});
+  const limb=(mat,sx,sy,sz,px,py)=>{ const piv=new THREE.Group(); piv.position.set(px,py,0); const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),mat); m.position.y=-sy/2; piv.add(m); g.add(piv); return piv; };
+  const legL=limb(pants,0.18,0.92,0.2,-0.12,0.92), legR=limb(pants,0.18,0.92,0.2,0.12,0.92);
+  box(0.52,0.72,0.28,shirt,0,1.27,0,g);
+  if(o.dress) box(0.6,0.55,0.36,lam(o.dress),0,0.8,0,g);
+  if(o.coat) box(0.58,1.05,0.33,lam(o.coat),0,1.12,0,g);
+  if(o.apron) box(0.42,0.8,0.03,lam(o.apron),0,1.05,0.16,g);
+  if(o.overalls){ const om=lam(o.overalls); box(0.54,0.36,0.3,om,0,1.05,0,g); box(0.36,0.3,0.03,om,0,1.38,0.15,g); }
+  if(o.badge) box(0.08,0.09,0.02,lam(0xd8b048,{emissive:0x3a2a08}),0.13,1.46,0.15,g);
+  const armL=limb(o.coat?lam(o.coat):shirt,0.14,0.72,0.16,-0.34,1.6), armR=limb(o.coat?lam(o.coat):shirt,0.14,0.72,0.16,0.34,1.6);
+  const hand=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.14,0.12),skin); hand.position.y=-0.78; armL.add(hand); armR.add(hand.clone());
+  const head=new THREE.Group(); head.position.y=1.8; g.add(head);
+  const skull=new THREE.Mesh(new THREE.SphereGeometry(0.17,12,10),skin); skull.scale.y=1.15; head.add(skull);
+  const hairM=lam(o.hair);
+  const hair=new THREE.Mesh(new THREE.SphereGeometry(0.178,12,8,0,Math.PI*2,0,Math.PI*(o.longHair?0.6:0.45)),hairM); hair.position.y=0.03; hair.scale.y=1.15; head.add(hair);
+  if(o.longHair){ const back=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.36,0.08),hairM); back.position.set(0,-0.1,-0.13); head.add(back); }
+  if(o.beard){ const bd=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.14,0.08),hairM); bd.position.set(0,-0.12,0.12); head.add(bd); }
+  const eyeM=new THREE.MeshBasicMaterial({color:0x050505});
+  for(const s of [-1,1]){ const e=new THREE.Mesh(new THREE.SphereGeometry(0.022,6,4),eyeM); e.position.set(s*0.06,0.03,0.155); head.add(e); }
+  if(o.grin){
+    const mouth=new THREE.Mesh(new THREE.BoxGeometry(0.17,0.016,0.02),eyeM); mouth.position.set(0,-0.075,0.15); head.add(mouth);
+    for(const s of [-1,1]){ const c=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.014,0.02),eyeM); c.position.set(s*0.1,-0.06,0.14); c.rotation.z=s*0.5; head.add(c); }
+  } else { const mouth=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.014,0.02),lam(0x5a3030)); mouth.position.set(0,-0.08,0.155); head.add(mouth); }
+  if(o.glasses){ const gm=lam(0x222222); for(const s of [-1,1]){ const r=new THREE.Mesh(new THREE.TorusGeometry(0.035,0.007,4,10),gm); r.position.set(s*0.06,0.03,0.17); head.add(r); } }
+  if(o.hat){ const hc=o.hat==='straw'?0xd6be78:0x8a6a40, hm=lam(hc);
+    const brim=new THREE.Mesh(new THREE.CylinderGeometry(o.hat==='straw'?0.32:0.27,o.hat==='straw'?0.32:0.27,0.02,14),hm); brim.position.y=0.17; head.add(brim);
+    const crown=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.17,0.14,10),hm); crown.position.y=0.25; head.add(crown); }
+  g.scale.setScalar(o.scale||1);
+  scene.add(g);
+  return {g,pos:g.position,legL,legR,armL,armR,head,phase:Math.random()*6,seed:Math.random()*10,via:null,viaT:0,stuckT:0,lastX:g.position.x,lastZ:g.position.z,sideT:0,sideDir:1,blocked:false};
+}
+function placeActor(a,x,z){ a.pos.x=x; a.pos.z=z; a.lastX=x; a.lastZ=z; }
 
 // ---------- creatures ----------
 const creatures=[];
@@ -561,32 +772,18 @@ const LURK_LINES=[
   "I brought you something. Come and see.",
   "It's me. Don't you recognize me?",
   "You can't stay in there forever.",
-  "Just open it a little. Just a crack."
+  "Just open it a little. Just a crack.",
+  "It's Dale. Sheriff Boone. Open up, it's safe now.",
+  "Honey, it's Marisol. I forgot my key.",
+  "Mister? It's June. I'm lost. Can I come in?"
 ];
 const CHASE_LINES=["There you are.","Don't run. Don't run.","Come here, come here, come here.","Why are you running?"];
 const CLOTHES=[0x3b3f4a,0x5a4636,0x6b2e2e,0x2f4a3a,0x4a4a52,0x7a6a55,0x2a3550,0x6e6a62];
 function makeCreature(x,z){
-  const g=new THREE.Group(); g.position.set(x,0,z);
-  const cloth=new THREE.MeshLambertMaterial({color:pick(CLOTHES)});
-  const pants=new THREE.MeshLambertMaterial({color:pick([0x22232a,0x3a3328,0x2b2b2b])});
-  const skin=new THREE.MeshLambertMaterial({color:0xdcc6b2,emissive:0x2e2620,emissiveIntensity:1});
-  const limb=(mat,sx,sy,sz,px,py)=>{ const piv=new THREE.Group(); piv.position.set(px,py,0); const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),mat); m.position.y=-sy/2; piv.add(m); g.add(piv); return piv; };
-  const legL=limb(pants,0.18,0.92,0.2,-0.12,0.92), legR=limb(pants,0.18,0.92,0.2,0.12,0.92);
-  box(0.52,0.72,0.28,cloth,0,1.27,0,g);
-  const armL=limb(cloth,0.14,0.72,0.16,-0.34,1.6), armR=limb(cloth,0.14,0.72,0.16,0.34,1.6);
-  const hand=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.14,0.12),skin); hand.position.y=-0.78; armL.add(hand); const h2=hand.clone(); armR.add(h2);
-  const head=new THREE.Group(); head.position.y=1.8; g.add(head);
-  const skull=new THREE.Mesh(new THREE.SphereGeometry(0.17,12,10),skin); skull.scale.y=1.15; head.add(skull);
-  const hair=new THREE.Mesh(new THREE.SphereGeometry(0.175,12,8,0,Math.PI*2,0,Math.PI*0.45),new THREE.MeshLambertMaterial({color:pick([0x2a1f18,0x5b4a35,0x9a9188,0x1a1a1a])})); hair.position.y=0.03; hair.scale.y=1.15; head.add(hair);
-  const eyeM=new THREE.MeshBasicMaterial({color:0x050505});
-  for(const s of [-1,1]){ const e=new THREE.Mesh(new THREE.SphereGeometry(0.022,6,4),eyeM); e.position.set(s*0.06,0.03,0.155); head.add(e); }
-  // the grin: a wide, too-wide mouth
-  const mouth=new THREE.Mesh(new THREE.BoxGeometry(0.17,0.016,0.02),eyeM); mouth.position.set(0,-0.075,0.15); head.add(mouth);
-  for(const s of [-1,1]){ const c=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.014,0.02),eyeM); c.position.set(s*0.1,-0.06,0.14); c.rotation.z=s*0.5; head.add(c); }
-  scene.add(g);
-  const c={g,pos:g.position,legL,legR,armL,armR,head,state:'wander',target:null,tT:0,phase:Math.random()*6,seed:Math.random()*10,
-    via:null,viaT:0,stuckT:0,lastX:x,lastZ:z,sideT:0,sideDir:1,lineT:rnd(4,10),knockT:rnd(3,8),alerted:false,leaveT:0,lurkPt:null};
-  creatures.push(c); return c;
+  const a=makeHumanoid({shirt:pick(CLOTHES),pants:pick([0x22232a,0x3a3328,0x2b2b2b]),skin:0xdcc6b2,hair:pick([0x2a1f18,0x5b4a35,0x9a9188,0x1a1a1a]),grin:true,dress:Math.random()<0.3?pick(CLOTHES):null,longHair:Math.random()<0.35});
+  placeActor(a,x,z);
+  Object.assign(a,{kind:'creature',state:'wander',target:null,tT:0,lineT:rnd(4,10),knockT:rnd(3,8),alerted:false,leaveT:0,lurkPt:null});
+  creatures.push(a); return a;
 }
 function clearCreatures(){ for(const c of creatures) scene.remove(c.g); creatures.length=0; }
 function spawnNight(){
@@ -595,78 +792,244 @@ function spawnNight(){
     makeCreature(x,z); }
 }
 function expelFrom(b){ for(const c of creatures){ if(buildingAt(c.pos.x,c.pos.z)===b){ c.pos.x=b.doorOut.x+b.n[0]*1.5; c.pos.z=b.doorOut.z+b.n[1]*1.5; c.via=null; } } }
-function approachPoint(c,b){
-  const rx=c.pos.x-b.x, rz=c.pos.z-b.z, along=rx*b.n[0]+rz*b.n[1];
+function approachPoint(a,b){
+  const rx=a.pos.x-b.x, rz=a.pos.z-b.z, along=rx*b.n[0]+rz*b.n[1];
   if(along>b.half+0.4) return b.doorOut;
-  const tx=-b.n[1], tz=b.n[0], side=(rx*tx+rz*tz)>=0?1:-1;
+  const tx=b.t[0], tz=b.t[1], side=(rx*tx+rz*tz)>=0?1:-1;
+  const front=b.porch?3.6:2.5;
   if(along<-b.half+0.4) return {x:b.x-b.n[0]*(b.half+2.5)+tx*side*(b.otherHalf+2.2), z:b.z-b.n[1]*(b.half+2.5)+tz*side*(b.otherHalf+2.2)};
-  return {x:b.x+b.n[0]*(b.half+2.5)+tx*side*(b.otherHalf+2.2), z:b.z+b.n[1]*(b.half+2.5)+tz*side*(b.otherHalf+2.2)};
+  return {x:b.x+b.n[0]*(b.half+front)+tx*side*(b.otherHalf+2.2), z:b.z+b.n[1]*(b.half+front)+tz*side*(b.otherHalf+2.2)};
 }
-function navTarget(c,goal){
-  if(c.via){ if(dist(c.pos,c.via)<0.6||c.viaT>3) c.via=null; else return c.via; }
-  const cb=buildingAt(c.pos.x,c.pos.z), gb=buildingAt(goal.x,goal.z);
-  if(cb && cb!==gb){ if(dist(c.pos,cb.doorIn)<1.0){ c.via=cb.doorOut; c.viaT=0; return c.via; } return cb.doorIn; }
-  if(gb && gb!==cb){ if(gb.talisman) return approachPoint(c,gb);
-    if(dist(c.pos,gb.doorOut)<1.2){ c.via=gb.doorIn; c.viaT=0; return c.via; } return approachPoint(c,gb); }
+function navTarget(a,goal,canEnterProtected){
+  if(a.via){ if(dist(a.pos,a.via)<0.6||a.viaT>3) a.via=null; else return a.via; }
+  const cb=buildingAt(a.pos.x,a.pos.z), gb=buildingAt(goal.x,goal.z);
+  if(cb && cb!==gb){ if(dist(a.pos,cb.doorIn)<1.0){ a.via=cb.doorOut; a.viaT=0; return a.via; } return cb.doorIn; }
+  if(gb && gb!==cb){ if(gb.talisman && !canEnterProtected) return approachPoint(a,gb);
+    if(dist(a.pos,gb.doorOut)<1.2){ a.via=gb.doorIn; a.viaT=0; return a.via; } return approachPoint(a,gb); }
   return goal;
 }
-function updateCreatures(dt,pb,safe){
-  const protectedDoors=buildings.filter(b=>b.talisman).map(b=>b.doorBox);
+function updateCreatures(dt,pb,safe,extraC){
   let nearest=1e9, nearestChase=1e9;
   for(let i=creatures.length-1;i>=0;i--){
     const c=creatures[i]; const d=dist(c.pos,S.pos);
     if(c.state==='leave'){
       c.leaveT+=dt; const ax=c.pos.x-S.pos.x, az=c.pos.z-S.pos.z, l=Math.hypot(ax,az)||1;
-      moveCreature(c,{x:c.pos.x+ax/l*10,z:c.pos.z+az/l*10},1.8,dt,protectedDoors);
+      moveActor(c,{x:c.pos.x+ax/l*10,z:c.pos.z+az/l*10},1.8,dt,extraC);
       if(c.leaveT>25 || (d>45 && c.leaveT>3)){ scene.remove(c.g); creatures.splice(i,1); }
       continue;
     }
-    // expelled if a room becomes protected around it
     const cb=buildingAt(c.pos.x,c.pos.z); if(cb && cb.talisman) expelFrom(cb);
     const detect=(S.flashlight?42:26)+(S.sprinting?12:0);
     if(safe){ if(c.state==='chase' || (c.state!=='lurk' && d<40)){ c.state='lurk'; c.alerted=false;
-        const tx=-pb.n[1], tz=pb.n[0], o=rnd(-2.6,2.6), out=rnd(0.6,3.2); c.lurkPt={x:pb.doorOut.x+tx*o+pb.n[0]*out, z:pb.doorOut.z+tz*o+pb.n[1]*out}; } }
+        const o=rnd(-2.6,2.6), out=rnd(0.6,3.2)+(pb.porch?2.6:0); c.lurkPt={x:pb.doorOut.x+pb.t[0]*o+pb.n[0]*out, z:pb.doorOut.z+pb.t[1]*o+pb.n[1]*out}; } }
     else if(c.state==='lurk'){ c.state='chase'; }
     else if(c.alerted || d<detect){ if(c.state!=='chase'){ c.state='chase'; if(S.time-S.chaseSting>14){ S.chaseSting=S.time; sfx.sting(); if(d<30) showSub(pick(CHASE_LINES)); } } }
     else if(c.state==='chase' && d>75){ c.state='wander'; }
 
     if(c.state==='chase'){
-      const t=navTarget(c,S.pos); moveCreature(c,t,4.3+Math.min(S.day,6)*0.08,dt,protectedDoors);
+      const t=navTarget(c,S.pos,false); moveActor(c,t,4.3+Math.min(S.day,6)*0.08,dt,extraC);
       nearestChase=Math.min(nearestChase,d);
-      if(d<1.05 && !safe){ die(); return; }
+      if(d<1.05 && !safe){ die(); return {nearest,nearestChase}; }
     } else if(c.state==='lurk'){
       const dl=dist(c.pos,c.lurkPt);
-      if(dl>0.5) moveCreature(c,navTarget(c,c.lurkPt),1.6,dt,protectedDoors);
-      else { c.g.rotation.y=Math.atan2(S.pos.x-c.pos.x,S.pos.z-c.pos.z); idlePose(c,dt); }
-      c.lineT-=dt; if(c.lineT<=0){ c.lineT=rnd(9,16); if(d<14){ showSub(pick(LURK_LINES)); sfx.whisperBurst(); } }
-      c.knockT-=dt; if(c.knockT<=0){ c.knockT=rnd(7,14); if(dist(c.pos,pb.doorOut)<4.5) sfx.knock(clamp(1-d/18,0.15,1)); }
-    } else { // wander, drifting toward the player
+      if(dl>0.5) moveActor(c,navTarget(c,c.lurkPt,false),1.6,dt,extraC);
+      else { c.g.rotation.y=Math.atan2(S.pos.x-c.pos.x,S.pos.z-c.pos.z); idlePose(c,dt,true); }
+      c.lineT-=dt; if(c.lineT<=0){ c.lineT=rnd(9,16); if(d<16){ showSub(pick(LURK_LINES)); sfx.whisperBurst(); } }
+      c.knockT-=dt; if(c.knockT<=0){ c.knockT=rnd(7,14); if(dist(c.pos,pb.doorOut)<5 && !pb.door.open) sfx.knock(clamp(1-d/18,0.15,1)); }
+    } else {
       c.tT-=dt; if(!c.target || c.tT<=0 || dist(c.pos,c.target)<1.5){ const a=Math.random()*Math.PI*2, r=rnd(5,40); c.target={x:clamp(S.pos.x+Math.cos(a)*r,-WORLD+4,WORLD-4), z:clamp(S.pos.z+Math.sin(a)*r,-WORLD+4,WORLD-4)}; c.tT=rnd(10,20); }
-      moveCreature(c,navTarget(c,c.target),2.0,dt,protectedDoors);
+      moveActor(c,navTarget(c,c.target,false),2.0,dt,extraC);
     }
     nearest=Math.min(nearest,d);
   }
   return {nearest,nearestChase};
 }
-function moveCreature(c,t,speed,dt,extra){
-  c.viaT+=dt;
-  let dx=t.x-c.pos.x, dz=t.z-c.pos.z; const l=Math.hypot(dx,dz);
-  if(l<0.05){ idlePose(c,dt); return; }
+function moveActor(a,t,speed,dt,extra){
+  a.viaT+=dt; a.blocked=false;
+  let dx=t.x-a.pos.x, dz=t.z-a.pos.z; const l=Math.hypot(dx,dz);
+  if(l<0.05){ idlePose(a,dt); return; }
+  // doors: people open them, the things outside open only the unprotected ones
+  for(const d of doors){ if(d.open) continue; if((t===d.b.doorIn||t===d.b.doorOut) && dist(a.pos,d.c)<2.1){
+    if(a.kind==='npc') openDoor(d,true); else if(!d.b.talisman) openDoor(d,false); } }
   dx/=l; dz/=l;
-  if(c.sideT>0){ c.sideT-=dt; const sx=-dz*c.sideDir, sz=dx*c.sideDir; dx=dx*0.3+sx; dz=dz*0.3+sz; const m=Math.hypot(dx,dz); dx/=m; dz/=m; }
+  if(a.sideT>0){ a.sideT-=dt; const sx=-dz*a.sideDir, sz=dx*a.sideDir; dx=dx*0.3+sx; dz=dz*0.3+sz; const m=Math.hypot(dx,dz); dx/=m; dz/=m; }
   const step=Math.min(speed*dt,l);
-  c.pos.x+=dx*step; c.pos.z+=dz*step;
-  const p={x:c.pos.x,z:c.pos.z}; collide(p,0.32,extra); c.pos.x=clamp(p.x,-WORLD,WORLD); c.pos.z=clamp(p.z,-WORLD,WORLD);
-  c.stuckT+=dt;
-  if(c.stuckT>0.7){ const moved=Math.hypot(c.pos.x-c.lastX,c.pos.z-c.lastZ); if(moved<speed*0.7*0.25 && c.sideT<=0){ c.sideT=rnd(0.8,1.6); c.sideDir=Math.random()<0.5?-1:1; } c.stuckT=0; c.lastX=c.pos.x; c.lastZ=c.pos.z; }
-  c.g.rotation.y=Math.atan2(dx,dz);
-  c.phase+=dt*speed*2.3; const sw=Math.sin(c.phase)*Math.min(0.75,speed*0.16);
-  c.legL.rotation.x=sw; c.legR.rotation.x=-sw;
-  if(speed>3){ c.armL.rotation.x=-0.25; c.armR.rotation.x=-0.25; } else { c.armL.rotation.x=-sw*0.4; c.armR.rotation.x=sw*0.4; }
-  c.head.rotation.z=Math.sin(S.time*0.6+c.seed)*0.12; c.head.rotation.x=0;
+  a.pos.x+=dx*step; a.pos.z+=dz*step;
+  const p={x:a.pos.x,z:a.pos.z}; collide(p,0.3,extra); a.pos.x=clamp(p.x,-WORLD,WORLD); a.pos.z=clamp(p.z,-WORLD,WORLD);
+  a.stuckT+=dt;
+  if(a.stuckT>0.7){ const moved=Math.hypot(a.pos.x-a.lastX,a.pos.z-a.lastZ);
+    if(moved<speed*0.7*0.25){ a.blocked=true; a.stuckN=(a.stuckN||0)+1; if(a.sideT<=0){ a.sideT=rnd(0.8,1.6); a.sideDir=Math.random()<0.5?-1:1; } if(a.stuckN>5){ a.stuckN=0; a.sideT=0; unstick(a); } }
+    else a.stuckN=0;
+    a.stuckT=0; a.lastX=a.pos.x; a.lastZ=a.pos.z; }
+  a.g.rotation.y=Math.atan2(dx,dz);
+  a.phase+=dt*speed*2.3; const sw=Math.sin(a.phase)*Math.min(0.75,speed*0.16);
+  a.legL.rotation.x=sw; a.legR.rotation.x=-sw;
+  if(a.kind==='creature' && speed>3){ a.armL.rotation.x=-0.25; a.armR.rotation.x=-0.25; } else { a.armL.rotation.x=-sw*0.6; a.armR.rotation.x=sw*0.6; }
+  a.head.rotation.z=a.kind==='creature'?Math.sin(S.time*0.6+a.seed)*0.12:0; a.head.rotation.x=0;
 }
-function idlePose(c,dt){ c.legL.rotation.x*=0.9; c.legR.rotation.x*=0.9; c.armL.rotation.x*=0.9; c.armR.rotation.x*=0.9;
-  c.head.rotation.z=lerp(c.head.rotation.z,0.45*Math.sin(c.seed),dt*0.8); c.head.rotation.x=lerp(c.head.rotation.x,-0.1,dt); }
+function idlePose(a,dt,creepy){ a.legL.rotation.x*=0.9; a.legR.rotation.x*=0.9; a.armL.rotation.x*=0.9; a.armR.rotation.x*=0.9;
+  if(creepy){ a.head.rotation.z=lerp(a.head.rotation.z,0.45*Math.sin(a.seed),dt*0.8); a.head.rotation.x=lerp(a.head.rotation.x,-0.1,dt); }
+  else { a.head.rotation.z=Math.sin(S.time*0.5+a.seed)*0.05; a.head.rotation.x=Math.sin(S.time*0.3+a.seed)*0.06; } }
+
+// ---------- townsfolk ----------
+const PLACES = {
+  station:{b:'station'}, diner:{b:'diner'}, clinic:{b:'clinic'}, bar:{b:'bar'}, booneHouse:{b:'booneHouse'}, farmhouse:{b:'farmhouse'},
+  patrol:{points:[{x:2.5,z:-62},{x:2.5,z:-30},{x:-2.5,z:-2},{x:2.5,z:24},{x:-2.5,z:68},{x:2.5,z:24},{x:-2.5,z:-2},{x:2.5,z:-30}]},
+  chapelYard:{x:-6.8,z:52,r:3}, field:{x:59,z:22,r:7}, yard:{x:53,z:2,r:3.5}, farmGate:{x:50,z:-6,r:2.5}
+};
+const has = k => !!S.know[k];
+const PEOPLE = [
+  { id:'dale', name:'Dale Boone', role:'Sheriff', look:{shirt:0x6b5a3a,pants:0x3a3a40,skin:0xc79a7a,hair:0x3a2a20,hat:'sheriff',badge:true,scale:1.05}, home:'booneHouse', work:'patrol', speed:1.6, offset:0,
+    intro:["Easy there. You came in off the road? Yeah. Everybody does, sooner or later.","Dale Boone. I was sheriff of a county I can't find on a map anymore, so I suppose I'm sheriff of this.","Two rules matter here. Be behind a door with a stone hanging by it when the sun goes down. And don't let anybody in after dark, no matter whose voice it is."],
+    topics:[
+      {learn:'hal', lines:["You're going to ask me how to get out. Everybody does on the second day.","Honest answer is I don't know. But there was a man, Hal Cobb. Lived in the house across the road from the Lantern.","Hal was sure there was a way. Spent every daylight hour out in those trees with a notebook.","One night he didn't come in. That was about a month back. Nobody's hung a stone in his place since. Go look, if you want. I couldn't."]},
+      {when:()=>S.hasMap, lines:["You found something in Hal's place. I can see it on you.","Whatever it is, don't follow it into the trees past four in the afternoon. I mean that."]},
+    ],
+    small:["The road just brings you back. I drove it for six hours once. Six hours, and there was the diner.","They can see a flashlight a long way off. Use it when you have to, not because you can.","I walk this road twice a day. Keeps me from thinking."],
+    night:["Stay off the porch. Stay away from the windows. Morning comes. It always has so far.","Don't answer it. Whatever it says, don't answer it."] },
+  { id:'marisol', name:'Marisol Boone', role:'Runs the diner', look:{shirt:0x7a3b46,pants:0x2a2a30,skin:0xb98a68,hair:0x1e1612,apron:0xd9d2c0,dress:0x5a2e36,longHair:true}, home:'booneHouse', work:'diner', speed:1.4, offset:0.2,
+    intro:["You found my note, then. Good. Sit down. There's coffee. It doesn't taste like anything anymore, but it's hot.","I'm Marisol. Dale's my husband. The tall boy throwing rocks at the chapel is Eli. He's ours too."],
+    topics:[
+      {learn:'hal', when:()=>!has('hal'), lines:["If you're going to ask about getting out, ask Dale about Hal Cobb.","Hal's the only one of us who ever got anywhere. Or anywhere we know about."]},
+      {when:()=>has('waystone') && !has('exit'), lines:["Hal used to sit at that counter and talk about the stone by the north sign.","I thought it was grief talking. Maybe it was. Grief can still be right."]},
+    ],
+    small:["Whatever you hear at the door at night, it isn't who it says it is.","Eat something. You look like the road chewed you up.","I wrote that note for the next one through. I keep writing new copies. People keep coming."],
+    night:["Sit by the fire. It helps, a little.","Eli, away from the window. Now."] },
+  { id:'eli', name:'Eli Boone', role:"The Sheriff's son", look:{shirt:0x3c5a7a,pants:0x34363c,skin:0xc79a7a,hair:0x2a1e16,scale:0.92}, home:'booneHouse', work:'chapelYard', speed:1.8, offset:0.4,
+    intro:["You're new. Did you crash too? We hit a tree. Dad says the tree wasn't there before."],
+    topics:[
+      {learn:'radio', lines:["Don't tell my mom, but I go out to the radio tower sometimes. It's southwest, way out in the trees. There's a little shack at the bottom.","The radio in there picks up a lady talking. I can never find her twice. Hal wrote something on the wall about her, I think.","You can see the red light on top from the road at night, if the fog's low."]},
+    ],
+    small:["I'm fifteen. I've been fifteen for a while now, I think.","Pip says the night people know his name. I told him to stop listening.","Dad thinks I don't know about the guns in the cabinet. I know."],
+    night:["Do you think they used to be people?","I counted eleven of them last night. Mom says don't count."] },
+  { id:'vance', name:'Dr. Imogen Vance', role:'Surgeon', look:{shirt:0x4a5a6a,pants:0x2a2a30,skin:0xe2c4ae,hair:0x9a9188,coat:0xe6e6e0,glasses:true,longHair:true}, home:'clinic', work:'clinic', speed:1.4, offset:0.1,
+    intro:["I was a surgeon, before. I suppose I still am. People here still cut themselves and fall off ladders.","Whatever they do to you out there at night, there's nothing I can stitch. So please don't make me try."],
+    topics:[
+      {learn:'well', lines:["Hal came in once with rope burns across both palms. Deep ones.","He said he'd been at the old well in the southeast, after dark. He said it only gives at night.","I told him nothing is worth that. He laughed at me. I liked Hal."]},
+    ],
+    small:["Sleep where the stone hangs. Sleep is the only medicine I have left that works every time.","Nobody here gets sick. Nobody gets old, that I can tell. I've stopped writing it down.","If you're hurt, come in. If you're scared, come in anyway."],
+    night:["You can take the cot. I don't sleep much.","They used to scratch at that window. I moved the bed."] },
+  { id:'abel', name:'Abel Tanner', role:'Farmer', look:{shirt:0x8a6a4a,pants:0x3a4a6a,skin:0xb5876a,hair:0x6a4a2a,hat:'straw',overalls:0x3a4a6a,beard:true,scale:1.06}, home:'farmhouse', work:'field', speed:1.4, offset:0,
+    intro:["Abel Tanner. That's Ruth up by the house, and the two terrors are June and Pip.","Ground out here grows anything you put in it. Quick, too. Too quick. I try not to think about it."],
+    topics:[
+      {learn:'waystone', lines:["You know that stone up by the north sign? Hal used to stand at it and talk to it.","Said it had four holes in the top like it was waiting on something. Said the town took four things and hid them.","I figured he'd been in the trees too long. Now he's in them for good, so maybe I was right. Or maybe I wasn't."]},
+    ],
+    small:["Don't you sleep in that barn. No stone in it. We lost the dog that way.","Corn's taller than it was yesterday. It's always taller than it was yesterday.","Ruth does the thinking. I do the lifting. It works out."],
+    night:["Kids are down. Keep your voice low.","Fence doesn't stop them. Never did. It just makes me feel better."] },
+  { id:'ruth', name:'Ruth Tanner', role:"Abel's wife", look:{shirt:0x6a7a5a,pants:0x3a3328,skin:0xd8b49a,hair:0x8a5a2a,dress:0x6a5a3a,longHair:true}, home:'farmhouse', work:'yard', speed:1.4, offset:0.3,
+    intro:["If you get hungry, come out to the farm. There's always more than we can eat.","Don't mind the kids. They talk to everyone. I've stopped being able to stop them."],
+    topics:[
+      {learn:'stones', lines:["Hal brought June a drawing once. Five standing stones, out northeast, each with a little picture carved on it.","He said they wake up if you touch them in the right order. He said he'd tell her the order when he got back.","She still keeps the drawing under her pillow."]},
+    ],
+    small:["June's nine. Pip's six. They were eight and five when we came.","I keep a list of everyone who's come through. Some of them, I cross off.","There's bread in the farmhouse. Help yourself."],
+    night:["Hush. Let them knock. They get tired of it."] },
+  { id:'june', name:'June Tanner', role:'Farm kid', look:{shirt:0xb05a5a,pants:0x3a3a40,skin:0xd8b49a,hair:0x8a5a2a,dress:0x7a4a6a,longHair:true,scale:0.72}, home:'farmhouse', work:'yard', speed:1.9, offset:0.5,
+    intro:["Hi! Are you staying? Most people stay. Everybody stays."],
+    topics:[
+      {learn:'bus', lines:["Pip and me found a yellow bus in the woods. Northwest. We weren't supposed to go that far.","There's little wooden people out there around it. They hide in the trees.","I think the bus wants them back. That's what it feels like. Don't tell Mom we went."]},
+    ],
+    small:["Mr. Cobb drew me a picture of rocks. He's coming back to finish it.","Pip's scared of the scarecrow. I'm not.","Do you have any candy? You don't. Nobody does."],
+    night:["Is it them? Is it knocking?","I'm not scared. Pip is."] },
+  { id:'pip', name:'Pip Tanner', role:'Farm kid', look:{shirt:0x4a6a9a,pants:0x3a4a6a,skin:0xd8b49a,hair:0xb07a3a,overalls:0x3a4a6a,scale:0.6}, home:'farmhouse', work:'yard', speed:2.0, offset:0.5,
+    intro:["I'm Pip. I'm not allowed past the fence."],
+    topics:[],
+    small:["The lady at the window at night sings to me. Mama says don't listen.","June says the bus is ours now. It's not.","I'm six and a half."],
+    night:["They know my name. How do they know my name?"] },
+  { id:'cormac', name:'Cormac Reilly', role:'Barkeeper', look:{shirt:0x5a6a4a,pants:0x2a2a30,skin:0xe0b49a,hair:0x8a3a1e,apron:0x3a2a1e,beard:true,scale:1.08}, home:'bar', work:'bar', speed:1.3, offset:0,
+    intro:["Welcome to the Lantern. Only bar in town. Only bar in the world, near as anyone can tell.","First one's free. So's every one after that. Money doesn't do much here."],
+    topics:[
+      {learn:'waystone', when:()=>!has('waystone'), lines:["Hal sat right where you're standing and told me there were four things out in the trees that the town keeps for itself.","Bring them to the stone up by the north sign, he said, and the road lets you go.","I told him he was drunk. He was. Didn't make him wrong."]},
+      {when:()=>S.relics.length>0, lines:["What's that you've got in your pocket? It's humming. I can hear it from here.","Hal said the town's things would feel like that. Like they wanted to be somewhere."]},
+    ],
+    small:["Nessa keeps the books. Nothing to keep, but she keeps them.","I had a bar in Galway once. Or I think I did.","They don't come in here. I've never once asked why."],
+    night:["Pull up a stool. Nobody's leaving.","Hear that? Don't. Just don't."] },
+  { id:'nessa', name:'Nessa Reilly', role:"Cormac's daughter", look:{shirt:0x2e3a4a,pants:0x2a2a30,skin:0xe0b49a,hair:0x7a2e14,longHair:true}, home:'bar', work:'bar', speed:1.5, offset:0.2,
+    intro:["Dad'll talk your ear off and tell you nothing. If you want a straight answer, ask me."],
+    topics:[
+      {learn:'stoneOrder', lines:["Hal left a napkin here the last night he came in. Five words on it, in order.","Eye. Hand. Moon. Tooth. Door.","I kept it. I don't know why. Here, read it yourself."]},
+    ],
+    small:["I was supposed to start university in September. Whichever September it is.","The Lantern's the warmest room in town. Come back before dark.","Dad pretends he's not scared. It's for me. I let him."],
+    night:["Sit near the fire. Not near the door."] },
+];
+const npcs=[];
+function clearAt(x,z,r){
+  for(const b of boxes){ const cx=clamp(x,b.minX,b.maxX), cz=clamp(z,b.minZ,b.maxZ); if((x-cx)**2+(z-cz)**2<r*r) return false; }
+  const cell=grid.get(Math.floor(x/CELL)+','+Math.floor(z/CELL)); if(cell) for(const c of cell) if(Math.hypot(x-c.x,z-c.z)<r+c.r) return false;
+  return true;
+}
+function placePoint(place){
+  const P=PLACES[place];
+  if(P.points) return null;
+  let p;
+  for(let i=0;i<30;i++){
+    if(P.b){ const b=B[P.b], n=b.inner; p={x:rnd(n.minX+0.8,n.maxX-0.8), z:rnd(n.minZ+0.8,n.maxZ-0.8)}; if(dist(p,b.doorIn)<1.2) continue; }
+    else { const a=Math.random()*Math.PI*2, r=Math.random()*P.r; p={x:P.x+Math.cos(a)*r, z:P.z+Math.sin(a)*r}; }
+    if(clearAt(p.x,p.z,0.9)) return p;
+  }
+  return P.b ? {x:B[P.b].doorIn.x, z:B[P.b].doorIn.z} : p;
+}
+function unstick(a){ // pick a nearby open spot and walk there first
+  for(let i=0;i<20;i++){ const ang=Math.random()*Math.PI*2, r=rnd(1,2.5), p={x:a.pos.x+Math.cos(ang)*r, z:a.pos.z+Math.sin(ang)*r};
+    if(buildingAt(p.x,p.z)===buildingAt(a.pos.x,a.pos.z) && clearAt(p.x,p.z,0.4)){ a.via=p; a.viaT=0; return; } }
+}
+for(const def of PEOPLE){
+  const a=makeHumanoid(def.look); a.kind='npc'; a.def=def; a.met=false; a.talking=false; a.place=null; a.goal=null; a.waitT=0; a.patrolI=0;
+  for(const t of def.topics) t.done=false;
+  const p=placePoint(def.home); placeActor(a,p.x,p.z);
+  a.it=addInteract({x:p.x,y:1.5*(def.look.scale||1),z:p.z,r:2.6,
+    label:()=>`Talk to ${def.name}`+(hasNewTopic(a)?' <em>· has something to tell you</em>':''),
+    act:()=>startTalk(a)});
+  npcs.push(a);
+}
+function hasNewTopic(a){ if(!a.met) return false; return a.def.topics.some(t=>!t.done && (!t.when||t.when()) && (t.learn?!has(t.learn):true)); }
+function desiredPlace(a){ const h=S.hour, off=a.def.offset; return (h>=7.4+off && h<17.6+off) ? a.def.work : a.def.home; }
+function updateNPCs(dt,extraN){
+  for(const a of npcs){
+    a.it.x=a.pos.x; a.it.z=a.pos.z;
+    if(a.talking){ a.g.rotation.y=Math.atan2(S.pos.x-a.pos.x,S.pos.z-a.pos.z); idlePose(a,dt); continue; }
+    const want=desiredPlace(a), P=PLACES[want];
+    if(a.place!==want){ a.place=want; a.goal=P.points?P.points[a.patrolI%P.points.length]:placePoint(want); a.waitT=0; }
+    // after dark, everyone is home
+    if(isNight() && a.place===a.def.home && buildingAt(a.pos.x,a.pos.z)!==B[a.def.home]){ const p=placePoint(a.def.home); placeActor(a,p.x,p.z); a.goal=p; a.via=null; }
+    const d=dist(a.pos,a.goal);
+    const hurry=(S.hour>=17.6&&S.hour<20)?1.7:1;
+    if(d<0.5 || (a.blocked && d<2.2)){
+      idlePose(a,dt); a.waitT-=dt;
+      if(a.waitT<=0){ a.waitT=P.points?rnd(3,6):rnd(6,14); if(P.points){ a.patrolI++; a.goal=P.points[a.patrolI%P.points.length]; } else a.goal=placePoint(a.place); a.blocked=false; }
+    } else moveActor(a,navTarget(a,a.goal,true),a.def.speed*hurry,dt,extraN);
+  }
+}
+let talk=null;
+function startTalk(a){
+  const d=a.def; let lines, learnKey=null;
+  if(!a.met){ a.met=true; lines=d.intro; }
+  else {
+    const tp=d.topics.find(t=>!t.done && (!t.when||t.when()));
+    if(tp){ tp.done=true; lines=tp.lines; learnKey=tp.learn||null; S.heard.push({who:d.name,text:tp.lines.join(' ')}); }
+    else lines=[pick(isNight()&&d.night?d.night:d.small)];
+  }
+  a.talking=true; talk={a,lines,i:0,learnKey}; S.ui='dialog';
+  $('dlgName').textContent=d.name; $('dlgRole').textContent=d.role; renderTalk(); $('dialog').hidden=false; sfx.pick();
+}
+function renderTalk(){ $('dlgText').textContent=talk.lines[talk.i]; $('dlgMore').textContent = talk.i<talk.lines.length-1 ? 'E to continue' : 'E to finish'; }
+function advanceTalk(){ if(!talk) return; talk.i++; if(talk.i<talk.lines.length){ renderTalk(); return; } endTalk(); }
+function endTalk(){ if(!talk) return; const t=talk; talk=null; t.a.talking=false; $('dialog').hidden=true; if(S.ui==='dialog') S.ui=null; if(t.learnKey) learn(t.learnKey); }
+
+// ---------- knowledge ----------
+const LEADS = {
+  hal:{title:'Hal Cobb', text:()=>"Hal Cobb was sure there was a way out. He lived in the house across the road from the Lantern, and one night he didn't come back.", done:()=>!!S.visited.halHouse},
+  marks:{title:"Hal's map", text:()=>S.hasMap?'Hal marked four places in the woods around town: northwest, northeast, southwest and southeast.':'Hal marked places in the woods on a map. It should still be in his house.', done:()=>S.hasMap},
+  bus:{title:'The bus', text:()=>`An old school bus in the woods northwest of town. It wants its three little wooden passengers back (${S.tokens}/3 found).`, done:()=>S.busDone},
+  stones:{title:'The stones', text:()=>'Five standing stones northeast of town. They wake if you touch them in the right order.'+(has('stoneOrder')?' The order: eye, hand, moon, tooth, door.':' Somebody must know the order.'), done:()=>S.stonesDone},
+  stoneOrder:{hidden:true, title:'The order of the stones'},
+  radio:{title:'The voice on the radio', text:()=>"A woman's voice comes through the receiver in the shack under the radio tower, southwest of town."+(has('freq')?` Hal wrote her frequency on the wall: ${RADIO_FREQ.toFixed(1)}.`:''), done:()=>S.radioDone},
+  freq:{hidden:true, title:'Her frequency'},
+  well:{title:'The well', text:()=>'An old well southeast of town, with a shed beside it.'+(has('wellNight')?' It only gives after dark, and they hear the crank.':''), done:()=>S.wellDone},
+  wellNight:{hidden:true, title:'The well at night'},
+  waystone:{title:'The waystone', text:()=>`A stone under the NOW LEAVING sign with four hollows in its top. Hal thought the town hid four things in the trees that belong there (${S.placed}/4 placed).`, done:()=>S.exitOpen},
+  exit:{title:'The road north', text:()=>'The waystone is full and humming. The road north will let you go, but only in daylight.', done:()=>S.won},
+};
+function learn(k){ if(S.know[k]) return; S.know[k]=true; const L=LEADS[k]; if(L && !L.hidden){ setTimeout(()=>showMsg(`<span style="color:var(--warn)">New in your journal: ${L.title}.</span> Press J to read it.`,4.5), 400); sfx.chime(3); } }
 
 // ---------- audio ----------
 const A={ctx:null};
@@ -688,7 +1051,7 @@ function initAudio(){
   }catch(e){ A.ctx=null; }
 }
 function tone(f,dur,vol,type='sine',when=0,attack=0.01){ if(!A.ctx) return; const t=A.ctx.currentTime+when; const o=A.ctx.createOscillator(); o.type=type; o.frequency.value=f; const g=A.ctx.createGain();
-  g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(vol,t+attack); g.gain.exponentialRampToValueAtTime(0.0001,t+attack+dur); o.connect(g).connect(A.master); o.start(t); o.stop(t+attack+dur+0.05); }
+  g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(vol,t+attack); g.gain.exponentialRampToValueAtTime(0.0001,t+attack+dur); o.connect(g).connect(A.master); o.start(t); o.stop(t+attack+dur+0.05); return o; }
 function burst(freq,dur,vol,when=0,type='lowpass'){ if(!A.ctx) return; const t=A.ctx.currentTime+when; const s=A.ctx.createBufferSource(); s.buffer=A.noise; const f=A.ctx.createBiquadFilter(); f.type=type; f.frequency.value=freq; const g=A.ctx.createGain();
   g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); s.connect(f).connect(g).connect(A.master); s.start(t,Math.random()); s.stop(t+dur+0.05); }
 const sfx={
@@ -697,6 +1060,8 @@ const sfx={
   ward:()=>{ tone(196,1.4,0.08); tone(294,1.6,0.05,'sine',0.05); tone(392,1.8,0.03,'sine',0.1); },
   click:()=>tone(2200,0.02,0.03,'square'),
   knock:v=>{ for(let i=0;i<3;i++) burst(380,0.09,0.55*v,i*0.27); },
+  creak:v=>{ const o=tone(180,0.6,0.05*v,'sawtooth',0,0.05); if(o) o.frequency.linearRampToValueAtTime(320,A.ctx.currentTime+0.6); burst(900,0.3,0.05*v,0,'bandpass'); },
+  thunk:v=>{ burst(260,0.15,0.5*v); tone(90,0.2,0.2*v); },
   heart:v=>{ tone(52,0.22,0.5*v,'sine',0,0.02); tone(46,0.25,0.35*v,'sine',0.17,0.02); },
   bell:()=>{ tone(174,5,0.18,'sine',0,0.005); tone(349*1.19,4,0.06,'sine',0,0.005); tone(523,3,0.04,'sine',0,0.005); },
   sting:()=>{ tone(110,2.2,0.05,'sawtooth',0,0.05); tone(116.5,2.2,0.05,'sawtooth',0,0.05); tone(164.8,2,0.03,'sawtooth',0.05,0.05); },
@@ -713,8 +1078,9 @@ let msgT=0, subT=0;
 function showMsg(t,dur=5){ $('msg').innerHTML=t; $('msg').style.opacity=1; msgT=dur; }
 function showSub(t){ $('sub').textContent='“'+t+'”'; $('sub').style.opacity=1; subT=4.5; }
 function openNote(title,text,key){ S.ui='note'; $('noteBody').innerHTML=`<h3>${title}</h3><div>${text}</div>`; $('note').hidden=false; if(key) S.notesRead[key]={title,text}; sfx.pick(); }
-function closeUI(){ S.ui=null; $('note').hidden=true; $('journal').hidden=true; $('mapWrap').hidden=true; $('tuner').hidden=true; if(A.ctx){ A.stG.gain.value=0; A.voG.gain.value=0; } }
-function grantRelic(id,text){ S.relics.push(id); sfx.musicBox(); showMsg(text+` <br><span style="color:var(--warn)">${RELIC_NAMES[id]} added. Take it to the waystone.</span>`,8); }
+function closeUI(){ if(talk) endTalk(); S.ui=null; $('note').hidden=true; $('journal').hidden=true; $('mapWrap').hidden=true; $('tuner').hidden=true; if(A.ctx){ A.stG.gain.value=0; A.voG.gain.value=0; } }
+function grantRelic(id,text){ S.relics.push(id); sfx.musicBox();
+  showMsg(text+` <br><span style="color:var(--warn)">${RELIC_NAMES[id]}. ${has('waystone')?'Take it to the waystone.':'It hums faintly, like it wants to be somewhere else.'}</span>`,8); }
 function openTuner(){ S.ui='tuner'; $('tuner').hidden=false; S.tunedT=0; renderTuner(); }
 const TRANSCRIPT="...is anyone there... if you can hear me... the well gives only after dark... bring a stone, hang it in the shed beside it... they will hear the crank, all of them... I'm leaving this tape in the deck for whoever comes next...";
 function renderTuner(){
@@ -725,18 +1091,17 @@ function renderTuner(){
   $('transcript').textContent = off<0.05 ? TRANSCRIPT.slice(0,shown) : (clar>0.3?'...a voice under the static...':'(static)');
 }
 function renderJournal(){
-  const item=(done,txt)=>`<li class="${done?'done':''}"><span>${done?'✕':'○'}</span><span>${txt}</span></li>`;
-  const rHave=id=>S.relics.includes(id);
-  let h=`<h3>Journal</h3><ul>`;
-  h+=item(S.hasMap,"Find Hal's map in the diner");
-  h+=item(S.busDone,`The bus, northwest: return the three carved passengers (${S.tokens}/3 found)`);
-  h+=item(S.stonesDone,"The stones, northeast: wake them in Hal's order");
-  h+=item(S.radioDone,'The radio tower, southwest: find her broadcast and listen to the end');
-  h+=item(S.wellDone,'The well, southeast: draw it up after dark');
-  h+=item(S.exitOpen,`Set the relics in the waystone by the north sign (${S.placed}/4 placed${S.relics.length?`, ${S.relics.length} carried`:''})`);
-  h+=item(S.won,'Leave by the road, in daylight');
-  h+=`</ul><hr><b>The rules</b><br>Be inside before dark. Only trust a room with a stone by the door. Don't open up for anybody.`;
-  const notes=Object.values(S.notesRead); if(notes.length){ h+='<hr><b>Notes you have read</b>'; for(const n of notes) h+=`<p style="margin:8px 0 0"><i>${n.title}.</i> ${n.text}</p>`; }
+  const item=(done,title,txt)=>`<li class="${done?'done':''}"><span>${done?'✕':'○'}</span><span><b>${title}.</b> ${txt}</span></li>`;
+  let h=`<h3>Journal</h3><h4>Staying alive</h4><ul>`;
+  h+=item(false,'Before dark','Be inside a room with a talisman hanging by the door. Don\'t open up for anyone.');
+  h+=`</ul>`;
+  const leads=Object.entries(LEADS).filter(([k,L])=>!L.hidden && has(k));
+  h+=`<h4>Leads</h4>`;
+  if(!leads.length) h+=`<p style="margin:0">Nothing yet. The people in town have been here a while. Someone must know something.</p>`;
+  else { h+='<ul>'; for(const [k,L] of leads) h+=item(L.done(),L.title,L.text()); h+='</ul>'; }
+  if(S.relics.length && !has('waystone')) h+=`<p style="margin:8px 0 0"><i>You're carrying ${S.relics.map(r=>RELIC_NAMES[r].toLowerCase()).join(', ')}. It hums, like it belongs somewhere.</i></p>`;
+  if(S.heard.length){ h+='<h4>What people told you</h4>'; for(const n of S.heard) h+=`<p class="heard"><b>${n.who}</b><br>${n.text}</p>`; }
+  const notes=Object.values(S.notesRead); if(notes.length){ h+='<h4>Notes you have read</h4>'; for(const n of notes) h+=`<p class="heard"><b>${n.title}</b><br>${n.text}</p>`; }
   $('journalBody').innerHTML=h;
 }
 function drawMap(){
@@ -746,20 +1111,20 @@ function drawMap(){
   g.strokeStyle='rgba(60,45,25,.5)'; g.lineWidth=1; g.strokeRect(40,40,W-80,W-80);
   g.fillStyle='rgba(40,60,35,.18)'; for(const t of treePos){ if(Math.random()<0.5) continue; const [x,y]=P(t.x,t.z); g.fillRect(x,y,2,2); }
   g.strokeStyle='#4a3a26'; g.lineWidth=4; g.beginPath(); g.moveTo(o,40); g.lineTo(o,W-40); g.stroke();
+  g.lineWidth=2; g.beginPath(); { const [a,b]=P(4,-6), [c2,d]=P(57,-6); g.moveTo(a,b); g.lineTo(c2,d); } g.stroke();
   g.fillStyle='#4a3a26'; for(const b of buildings){ const [x,y]=P(b.x-b.w/2,b.z-b.d/2); g.fillRect(x,y,Math.max(3,b.w*s),Math.max(3,b.d*s)); }
   g.font='15px "Special Elite", monospace'; g.textAlign='center';
-  g.fillText("HARROW'S END",o+78,o+4);
-  const mark=(l,done,label)=>{ const [x,y]=P(l.x,l.z); g.strokeStyle=done?'#2f5a4c':'#7a2a1e'; g.lineWidth=2.5; g.beginPath();
+  g.fillText("HARROW'S END",o-80,o+4); g.font='12px "Special Elite", monospace'; { const [fx,fy]=P(70,10); g.fillText('Tanner farm',fx,fy+30); }
+  const mark=(l,key,done,label)=>{ const [x,y]=P(l.x,l.z); g.strokeStyle=done?'#2f5a4c':'#7a2a1e'; g.lineWidth=2.5; g.beginPath();
     if(done){ g.arc(x,y,9,0,Math.PI*2); } else { g.moveTo(x-8,y-8); g.lineTo(x+8,y+8); g.moveTo(x+8,y-8); g.lineTo(x-8,y+8); } g.stroke();
-    g.fillStyle='#2b2419'; g.fillText(label,x,y+26); };
-  mark(LOC.bus,S.busDone,'the bus'); mark(LOC.stones,S.stonesDone,'the stones'); mark(LOC.radio,S.radioDone,'radio tower'); mark(LOC.well,S.wellDone,'the well');
-  const [wx,wy]=P(LOC.waystone.x,LOC.waystone.z); g.fillStyle=S.exitOpen?'#2f5a4c':'#2b2419'; g.beginPath(); g.arc(wx,wy,4,0,Math.PI*2); g.fill(); g.fillText('waystone',wx+44,wy+4);
+    g.fillStyle='#2b2419'; g.font='15px "Special Elite", monospace'; g.fillText(has(key)?label:'?',x,y+26); };
+  mark(LOC.bus,'bus',S.busDone,'the bus'); mark(LOC.stones,'stones',S.stonesDone,'the stones'); mark(LOC.radio,'radio',S.radioDone,'radio tower'); mark(LOC.well,'well',S.wellDone,'the well');
+  if(has('waystone')){ const [wx,wy]=P(LOC.waystone.x,LOC.waystone.z); g.fillStyle=S.exitOpen?'#2f5a4c':'#2b2419'; g.beginPath(); g.arc(wx,wy,4,0,Math.PI*2); g.fill(); g.textAlign='left'; g.fillText('the stone',wx+8,wy+4); g.textAlign='center'; }
   g.font='12px "Special Elite", monospace'; g.fillStyle='rgba(43,36,25,.7)';
   g.fillText('the road goes nowhere',o,30); g.fillText('it only comes back',o,W-18);
   g.textAlign='left'; g.fillText('N ↑',W-70,30);
-  // you
   const [px,py]=P(S.pos.x,S.pos.z); g.save(); g.translate(px,py); g.rotate(-S.yaw+Math.PI); g.fillStyle='#a3231b'; g.beginPath(); g.moveTo(0,9); g.lineTo(-5,-6); g.lineTo(5,-6); g.closePath(); g.fill(); g.restore();
-  g.font='13px "Special Elite", monospace'; g.fillStyle='#2b2419'; g.textAlign='left'; g.fillText("— Hal's map. M to fold it away.",44,W-48);
+  g.font='13px "Special Elite", monospace'; g.fillStyle='#2b2419'; g.textAlign='left'; g.fillText("— H.C.   (M to fold it away)",44,W-48);
 }
 
 // ---------- input ----------
@@ -770,6 +1135,7 @@ addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.repeat && S.ui!=='tuner') return;
   if(S.dead||S.won) return;
+  if(S.ui==='dialog'){ if(e.code==='KeyE'||e.code==='Space'||e.code==='Enter') advanceTalk(); else if(e.code==='Escape') endTalk(); return; }
   if(S.ui==='tuner'){
     if(e.code==='KeyA'||e.code==='ArrowLeft'){ S.freq=clamp(Math.round((S.freq-0.1)*10)/10,87.5,108); S.tunedT=0; sfx.click(); renderTuner(); }
     if(e.code==='KeyD'||e.code==='ArrowRight'){ S.freq=clamp(Math.round((S.freq+0.1)*10)/10,87.5,108); S.tunedT=0; sfx.click(); renderTuner(); }
@@ -779,7 +1145,7 @@ addEventListener('keydown',e=>{
   if(e.code==='KeyE'){ if(S.ui==='note'){ closeUI(); return; } const it=currentInteract; if(it && !it.hold) it.act(); else if(it && it.hold && !isNight()) it.act(); }
   if(e.code==='Escape' && S.ui) closeUI();
   if(e.code==='KeyF'){ S.flashlight=!S.flashlight; sfx.click(); }
-  if(e.code==='KeyM'){ if(!S.hasMap){ showMsg("You don't have a map. There might be one in the diner."); return; } if(S.ui==='map') closeUI(); else { closeUI(); S.ui='map'; drawMap(); $('mapWrap').hidden=false; } }
+  if(e.code==='KeyM'){ if(!S.hasMap){ showMsg(has('hal')?"You don't have a map. Maybe Hal left something in his house.":"You don't have a map."); return; } if(S.ui==='map') closeUI(); else { closeUI(); S.ui='map'; drawMap(); $('mapWrap').hidden=false; } }
   if(e.code==='KeyJ'||e.code==='Tab'){ if(S.ui==='journal') closeUI(); else { closeUI(); S.ui='journal'; renderJournal(); $('journal').hidden=false; } }
 });
 addEventListener('keyup',e=>{ keys[e.code]=false; });
@@ -794,8 +1160,8 @@ function requestLock(){ try{ const p=cvs.requestPointerLock(); if(p && p.catch) 
 document.addEventListener('pointerlockchange',()=>{ S.locked=document.pointerLockElement===cvs;
   if(S.locked){ S.paused=false; $('pause').hidden=true; } else if(S.started && !S.dead && !S.won){ S.paused=true; $('pause').hidden=false; } });
 document.addEventListener('pointerlockerror',()=>{ S.noLock=true; });
-$('startBtn').addEventListener('click',()=>{ initAudio(); if(A.ctx&&A.ctx.state==='suspended') A.ctx.resume(); $('title').hidden=true; $('hud').hidden=false; S.started=true; requestLock();
-  showMsg('Your car is wrecked on the road south of here. This was the only place with a light on. There\'s a note on the counter.',8); });
+$('startBtn').addEventListener('click',()=>{ initAudio(); if(A.ctx&&A.ctx.state==='suspended') A.ctx.resume(); $('title').hidden=true; $('hud').hidden=false; S.started=true; S.hour=7; S.time=0; requestLock();
+  showMsg('Your car is wrecked on the road south of here. This was the only place with a light on. Someone left a note on the counter.',8); });
 $('resumeBtn').addEventListener('click',()=>{ $('pause').hidden=true; S.paused=false; requestLock(); });
 $('againBtn').addEventListener('click',()=>location.reload());
 
@@ -803,16 +1169,15 @@ $('againBtn').addEventListener('click',()=>location.reload());
 const isNight=()=>S.hour>=NIGHT_START||S.hour<NIGHT_END;
 const isDaylight=()=>S.hour>=6.5&&S.hour<19.5;
 function dayFactor(h){ if(h<5.5||h>20.5) return 0; if(h<7) return smooth((h-5.5)/1.5); if(h>18.5) return smooth((20.5-h)/2); return 1; }
-const cDay=new THREE.Color(0x8b9196), cDusk=new THREE.Color(0x6e5450), cNight=new THREE.Color(0x05070b), cOpen=new THREE.Color(0xc9cdcc), tmpC=new THREE.Color();
+const cDay=new THREE.Color(0x8b9196), cDusk=new THREE.Color(0x6e5450), cNight=new THREE.Color(0x05070b), cOpen=new THREE.Color(0xc9cdcc), tmpC=new THREE.Color(), cSun=new THREE.Color(), cDusk2=cDusk.clone().multiplyScalar(2);
 function updateLighting(){
   const f=dayFactor(S.hour), duskW=(S.hour>17.5&&S.hour<21)||(S.hour>5&&S.hour<7) ? Math.sin(Math.PI*clamp(f,0,1)) : 0;
   tmpC.copy(cNight).lerp(cDay,f).lerp(cDusk,duskW*0.55);
   let dens=lerp(0.034,0.012,f);
-  // when the road is open, the fog thins to the north
   if(S.exitOpen && isDaylight() && Math.abs(S.pos.x)<14 && S.pos.z<-90){ const k=clamp((-90-S.pos.z)/120,0,1); dens=lerp(dens,0.004,k); tmpC.lerp(cOpen,k*0.7); }
   scene.fog.color.copy(tmpC); scene.background.copy(tmpC); scene.fog.density=dens;
   hemi.intensity=0.1+0.55*f; hemi.color.setHex(f>0.3?0xc4cacf:0x5a6a8a);
-  sun.intensity=0.04+0.62*f; sun.color.copy(tmpC.set(0xfff1dd).lerp(cDusk.clone().multiplyScalar(2),duskW*0.6));
+  sun.intensity=0.04+0.62*f; sun.color.copy(cSun.set(0xfff1dd).lerp(cDusk2,duskW*0.6));
   const nightF=1-f;
   for(const b of buildings) b.winMat.emissiveIntensity=b.talisman?nightF*0.9:0;
   M.bulb.color.setHex(nightF>0.5?0xffd9a0:0x555555);
@@ -823,40 +1188,41 @@ function updateLighting(){
 // ---------- death / respawn / win ----------
 function die(){
   if(S.dead) return; S.dead=true; S.deathT=0; S.deaths++; sfx.death(); closeUI();
-  $('deathTxt').textContent=`You wake on the diner floor. It's morning again. You don't remember walking back. Day ${S.day+1}.`;
+  $('deathTxt').textContent=`You wake on the diner floor with Marisol Boone kneeling over you. It's morning. Nobody can tell you how you got back. Day ${S.day+1}.`;
   setTimeout(()=>{ if(S.dead) $('death').hidden=false; },700);
 }
 function respawn(){
   S.dead=false; $('death').hidden=true; clearCreatures(); S.day++; S.hour=7; S.pos={x:-11,z:0}; S.yaw=-Math.PI/2; S.pitch=0; S.stamina=1; S.crank=0;
-  if(!diner.talisman && !S.carry){ /* the town is cruel, but not that cruel */ }
   showMsg(`Day ${S.day}. Your chest aches where their hands were.`);
 }
 function win(){
   S.won=true; closeUI(); sfx.bell();
   if(document.pointerLockElement) document.exitPointerLock();
-  $('winTxt').textContent=`The road keeps going. The trees thin out, and then there's a guardrail, and a mile marker, and the hum of a highway somewhere ahead. You got out of Harrow's End in ${S.day} day${S.day===1?'':'s'}${S.deaths?`, and they caught you ${S.deaths} time${S.deaths===1?'':'s'}`:' without them ever catching you'}.`;
+  $('winTxt').textContent=`The road keeps going. The trees thin out, and then there's a guardrail, and a mile marker, and the hum of a highway somewhere ahead. You think about the people still back there, behind their doors. You got out of Harrow's End in ${S.day} day${S.day===1?'':'s'}${S.deaths?`, and they caught you ${S.deaths} time${S.deaths===1?'':'s'}`:' without them ever catching you'}.`;
   $('win').hidden=false; $('hud').hidden=true;
 }
 
 // ---------- main update ----------
 let currentInteract=null, heartT=0, hourPrev=S.hour;
 const crossed=(a,b,x)=> a<=b ? (a<x&&b>=x) : (a<x||b>=x);
+const VISIT_TEXT={bus:"An old school bus, rusted into the trees. Something is taped to the door.",stones:"A ring of standing stones, each one carved with a picture.",radio:"A radio tower. A red light blinks at the top, and there's a shack at its foot.",well:"An old stone well with a crank, and a shed beside it."};
 function update(dt){
   S.time+=dt;
+  updateDoors(dt);
   if(S.dead){ S.deathT+=dt; camera.position.y=lerp(camera.position.y,0.35,dt*2); camera.rotation.z=lerp(camera.rotation.z,0.9,dt*1.5);
     if(S.deathT>4.5) respawn(); return; }
 
   const pb=buildingAt(S.pos.x,S.pos.z), safe=!!(pb&&pb.talisman);
-  // time
-  const waiting=keys.KeyT && safe && (isNight()||S.hour>=19);
+  const waiting=keys.KeyT && safe && (isNight()||S.hour>=19) && !S.ui;
   hourPrev=S.hour; S.hour+=dt/HOUR_SEC*(waiting?14:1); if(S.hour>=24) S.hour-=24;
-  if(crossed(hourPrev,S.hour,18.5)) showMsg('The light is going. Get to a room with a talisman by the door.');
+  if(crossed(hourPrev,S.hour,18.5)) showMsg('The light is going. People are heading indoors. You should too.');
   if(crossed(hourPrev,S.hour,19.5)) sfx.bell();
   if(crossed(hourPrev,S.hour,20)){ spawnNight(); showMsg(safe?'Night. Stay where you are.':'Night. They\'re out of the trees.'); if(A.ctx) A.windG.gain.value=0.16; }
   if(crossed(hourPrev,S.hour,6)){ S.day++; for(const c of creatures){ c.state='leave'; c.leaveT=0; } showMsg(`Day ${S.day}. They walk back into the trees as if nothing happened.`); if(A.ctx) A.windG.gain.value=0.1; }
 
+  const closedDoors=doors.filter(d=>!d.open).map(d=>d.box);
   // movement
-  const frozen=S.ui==='tuner'||S.ui==='note';
+  const frozen=S.ui==='tuner'||S.ui==='note'||S.ui==='dialog';
   let ix=0,iz=0; if(!frozen){ if(keys.KeyW||keys.ArrowUp) iz+=1; if(keys.KeyS||keys.ArrowDown) iz-=1; if(keys.KeyD||keys.ArrowRight) ix+=1; if(keys.KeyA||keys.ArrowLeft) ix-=1; }
   const moving=ix||iz;
   if(S.stamina<=0.02) S.tired=true; if(S.tired&&S.stamina>0.35) S.tired=false;
@@ -866,10 +1232,9 @@ function update(dt){
   if(moving){
     const fx=-Math.sin(S.yaw), fz=-Math.cos(S.yaw), rx=Math.cos(S.yaw), rz=-Math.sin(S.yaw);
     let vx=fx*iz+rx*ix, vz=fz*iz+rz*ix; const l=Math.hypot(vx,vz); vx/=l; vz/=l;
-    S.pos.x+=vx*speed*dt; S.pos.z+=vz*speed*dt; collide(S.pos,0.35);
+    S.pos.x+=vx*speed*dt; S.pos.z+=vz*speed*dt; collide(S.pos,0.35,closedDoors);
     S.bob+=dt*speed*1.75; if(Math.floor(S.bob/Math.PI)!==S.lastStep){ S.lastStep=Math.floor(S.bob/Math.PI); sfx.step(); }
   }
-  // the loop
   if(Math.abs(S.pos.x)>WORLD||Math.abs(S.pos.z)>WORLD){
     const onRoad=Math.abs(S.pos.x)<14;
     if(S.exitOpen && isDaylight() && onRoad && S.pos.z<-WORLD){ win(); return; }
@@ -881,17 +1246,16 @@ function update(dt){
   camera.position.set(S.pos.x,1.65+(moving?Math.sin(S.bob*2)*0.035:0),S.pos.z);
   camera.rotation.set(S.pitch,S.yaw,0); camera.updateMatrixWorld();
 
-  // visiting locations
-  for(const [k,l] of Object.entries(LOC)) if(!S.visited[k] && dist(l,S.pos)<26){ S.visited[k]=true; if(k!=='waystone') showMsg(`${l.name}. Hal marked this place on his map.`); }
+  // happenstance: stumbling onto places
+  for(const k of ['bus','stones','radio','well']) if(!S.visited[k] && dist(LOC[k],S.pos)<24){ S.visited[k]=true; showMsg(VISIT_TEXT[k],6); learn(k); }
+  if(!S.visited.halHouse && pb===B.halHouse){ S.visited.halHouse=true; showMsg(has('hal')?"Hal's house. The door was standing open. Papers are pinned all over the walls.":"The door was standing open. Nobody has lived here for a while. Papers are pinned all over the walls."); }
 
-  // interior light
   if(pb){ roomLight.position.set(pb.x,pb.h-0.5,pb.z); roomLight.intensity=pb.talisman?0.85:(Math.random()<0.06?0.05:0.3); } else roomLight.intensity=0;
 
-  // well crank
   const it=findInteract(); currentInteract=it;
   let holding=false;
   if(it && it.hold && keys.KeyE && isNight() && !S.wellDone && !frozen){
-    holding=true; const before=S.crank; S.crank=clamp(S.crank+dt/9,0,1); crankMesh.rotation.x+=dt*5;
+    holding=true; learn('well'); learn('wellNight'); const before=S.crank; S.crank=clamp(S.crank+dt/9,0,1); crankMesh.rotation.x+=dt*5;
     if(Math.floor(before*30)!==Math.floor(S.crank*30)) sfx.crank();
     if(before===0 || Math.random()<dt){ for(const c of creatures) if(c.state!=='leave'){ c.alerted=true; if(dist(c.pos,S.pos)>90){ const a=Math.random()*6.28; c.pos.x=clamp(S.pos.x+Math.cos(a)*85,-WORLD,WORLD); c.pos.z=clamp(S.pos.z+Math.sin(a)*85,-WORLD,WORLD); } } }
     if(before===0) showMsg('The crank shrieks on its axle. Somewhere in the trees, something stops and turns its head.');
@@ -899,16 +1263,15 @@ function update(dt){
   }
   $('hold').hidden=!holding && !(S.crank>0&&S.crank<1&&it&&it.hold); $('hold').firstElementChild.style.width=(S.crank*100)+'%';
 
-  // radio tuning
   if(S.ui==='tuner'){
-    if(Math.abs(S.freq-RADIO_FREQ)<0.05){ S.tunedT+=dt; if(A.ctx && Math.floor(S.time*2)!==Math.floor((S.time-dt)*2)) A.vo.frequency.value=[392,370,330,311,294,330,262,247][Math.floor(S.time*2)%8];
-      if(S.tunedT>9.5 && !S.radioDone){ S.radioDone=true; closeUI(); grantRelic('tape','The voice cuts off. The deck clicks, and a cassette slides out, the label written in the same hand as the notes.'); } }
+    if(Math.abs(S.freq-RADIO_FREQ)<0.05){ S.tunedT+=dt; learn('freq'); if(A.ctx && Math.floor(S.time*2)!==Math.floor((S.time-dt)*2)) A.vo.frequency.value=[392,370,330,311,294,330,262,247][Math.floor(S.time*2)%8];
+      if(S.tunedT>9.5 && !S.radioDone){ S.radioDone=true; learn('well'); learn('wellNight'); closeUI(); grantRelic('tape','The voice cuts off. The deck clicks, and a cassette slides out, the label written in the same hand as the notes.'); } }
     renderTuner();
   }
 
-  // creatures
+  updateNPCs(dt,closedDoors);
   let nearest=1e9, nearestChase=1e9;
-  if(creatures.length){ const r=updateCreatures(dt,pb,safe); if(S.dead) return; nearest=r.nearest; nearestChase=r.nearestChase; }
+  if(creatures.length){ const extraC=closedDoors.concat(buildings.filter(b=>b.talisman).map(b=>b.doorBox)); const r=updateCreatures(dt,pb,safe,extraC); if(S.dead) return; nearest=r.nearest; nearestChase=r.nearestChase; }
   if(A.ctx){ const wv=nearest<28?(1-nearest/28)*0.18:0; if(A.whG.gain.value<0.3) A.whG.gain.value=lerp(A.whG.gain.value,wv,dt*2); }
   if(nearestChase<38){ heartT-=dt; const bpm=lerp(150,72,nearestChase/38); if(heartT<=0){ heartT=60/bpm; sfx.heart(clamp(1.2-nearestChase/38,0.3,1)); } }
   $('danger').style.opacity = nearestChase<38 ? clamp(1-nearestChase/38,0,1)*0.9 : (nearest<12 && !safe ? 0.25 : 0);
@@ -922,7 +1285,7 @@ function update(dt){
 }
 const _v=new THREE.Vector3(), _f=new THREE.Vector3();
 function findInteract(){
-  if(S.ui==='tuner'||S.ui==='note') return null;
+  if(S.ui==='tuner'||S.ui==='note'||S.ui==='dialog') return null;
   camera.getWorldDirection(_f); let best=null,bs=-9;
   for(const it of inter){ if(it.enabled && !it.enabled()) continue;
     _v.set(it.x-camera.position.x,it.y-camera.position.y,it.z-camera.position.z); const d=_v.length(); if(d>(it.r||2.3)) continue;
@@ -945,8 +1308,9 @@ function updateHUD(pb,safe,it,waiting){
   if(pb){ if(safe){ st.textContent='Protected'+(isNight()||S.hour>=19?' · hold T to wait':''); st.className='safe'; } else { st.textContent='No talisman here'; st.className='unsafe'; } }
   else { st.textContent=''; st.className='out'; }
   let inv=`<div class="row"><span class="k">Talisman</span><span>${S.carry?'carrying one':'—'}</span></div>`;
-  inv+=`<div class="row"><span class="k">Relics</span><span>${S.placed+S.relics.length}/4${S.relics.length?` (${S.relics.map(r=>RELIC_NAMES[r]).join(', ')})`:''}</span></div>`;
-  if(S.tokens&&!S.busDone) inv+=`<div class="row"><span class="k">Figures</span><span>${S.tokens}/3</span></div>`;
+  const relicCount=S.placed+S.relics.length;
+  if(relicCount||has('waystone')) inv+=`<div class="row"><span class="k">Relics</span><span>${has('waystone')?relicCount+'/4':relicCount}${S.relics.length?` (${S.relics.map(r=>RELIC_NAMES[r]).join(', ')})`:''}</span></div>`;
+  if(S.tokens&&!S.busDone) inv+=`<div class="row"><span class="k">Figures</span><span>${S.tokens}${has('bus')?'/3':''}</span></div>`;
   inv+=`<div class="row"><span class="k">Light</span><span>${S.flashlight?'on':'off'} <span style="color:var(--dim)">[F]</span></span></div>`;
   if($('inv').innerHTML!==inv) $('inv').innerHTML=inv;
   $('stam').style.opacity=S.stamina<0.98?1:0; $('stam').firstElementChild.style.width=(S.stamina*100)+'%'; $('stam').firstElementChild.style.background=S.tired?'#e2574c':'';
@@ -958,15 +1322,13 @@ let last=performance.now();
 function frame(now){
   const dt=Math.min(0.05,(now-last)/1000); last=now;
   if(S.started && !S.paused && !S.won) update(dt);
-  else if(!S.started){ // slow drift for the title screen
+  else if(!S.started){
     S.time+=dt; camera.position.set(-2+Math.sin(S.time*0.05)*3,1.7,30); camera.rotation.set(0.02,Math.PI*0.02+Math.sin(S.time*0.07)*0.2,0); S.hour=19.3; updateLighting(); }
   renderer.render(scene,camera);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-if(location.hash==='#debug') window.__he={S,creatures,buildings,keys};
-// title screen hour resets to morning on start
-$('startBtn').addEventListener('click',()=>{ S.hour=7; S.time=0; });
+if(location.hash==='#debug') window.__he={S,creatures,buildings,keys,npcs,doors,B,learn,step:(n)=>{ for(let i=0;i<n && !S.dead && !S.won;i++) update(0.05); }};
 })();
 </script>
 </body>
