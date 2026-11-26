@@ -88,7 +88,7 @@ All sound is generated in the browser. There's a low drone that darkens as night
 
 ## The things at night
 
-Most of them look like ordinary people with a smile that's too wide. Some you'll learn to recognize. Each one has its own look, its own way of hunting and its own voice at the door. None of them moves faster than you walk, so if you keep moving and don't get cornered you can stay ahead, and running buys you distance until your breath gives out. The townsfolk will warn you about them, and the first time you see one, it goes into your journal.
+Most of them look like ordinary people, until you're close enough to see the smile: far too wide, far too many teeth, and eyes that never relax. Some you'll learn to recognize. Each one has its own look, its own way of hunting and its own voice at the door. None of them moves faster than you walk, so if you keep moving and don't get cornered you can stay ahead, and running buys you distance until your breath gives out. The townsfolk will warn you about them, and the first time you see one, it goes into your journal.
 
 | Creature | First night | What it does |
 | --- | --- | --- |
@@ -124,6 +124,6 @@ Most of them look like ordinary people with a smile that's too wide. Some you'll
 
 ## Tech
 
-A single `index.html` built with [three.js](https://threejs.org/) r128 (loaded from cdnjs). All models, textures and sounds are generated in code, so there are no asset files. Textures (clapboard, shingles, brick, stone, planks, asphalt) are painted from tileable noise at load time and mapped by world position, so they keep their scale on every surface. The sun moves across the sky and casts shadows that follow you, the flashlight casts its own shadows, and the night sky has stars and a moon. Static geometry is merged by material into a handful of draw calls, and the forest, grass, undergrowth and crops are instanced.
+A single `index.html` built with [three.js](https://threejs.org/) r128 (loaded from cdnjs). All models, textures and sounds are generated in code, so there are no asset files. Textures (clapboard, shingles, brick, stone, planks, asphalt) are painted from tileable noise at load time and mapped by world position, so they keep their scale on every surface. The sun moves across the sky and casts shadows that follow you, the flashlight casts its own shadows, and the night sky has stars and a moon. People are built from dozens of small shapes (faces, hands, collars, buttons, hats) and merged into one vertex-coloured mesh per body segment, with knees and elbows that bend as they walk. Static geometry is merged by material into a handful of draw calls, and the forest, grass, undergrowth and crops are instanced.
 
 For testing, open the page with `#debug` on the end of the URL. That exposes the game state as `window.__he` in the browser console, including `__he.step(n)` to fast-forward the simulation by `n` frames.
