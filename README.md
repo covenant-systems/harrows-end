@@ -31,11 +31,12 @@ Then go to http://localhost:8000.
 | J / Tab | Journal: leads, what people told you, notes |
 | T | Hold to wait for dawn while protected |
 | Z | Sleep where you stand (floor or ground) |
+| G | Strike a road flare and drop it |
 | N | Music on or off |
 
 ## Getting started
 
-You wake up in your wrecked car on the road south of town at 2 p.m. Your flashlight and two spare batteries are in the trunk. The flashlight drains while it's on (a set of batteries lasts about one night), so you'll want spares: you can find them in the sheriff's office, the general store, the gas station and the Tanners' barn, and two of the townsfolk will give you some if you ask.
+You wake up in your wrecked car on the road south of town at 2 p.m. Open the trunk and take what you need, one thing at a time: your flashlight, two spare batteries, three road flares, a wool blanket, a thermos of cold coffee and an old road atlas. The flashlight drains while it's on (a set of batteries lasts about one night), so you'll want spares. Road flares burn red for about a minute of real time, and nothing from the woods will step inside their light, which can buy you a way out of a bad spot. The blanket makes sleeping on a floor or the ground less miserable. For more batteries: you can find them in the sheriff's office, the general store, the gas station and the Tanners' barn, and two of the townsfolk will give you some if you ask.
 
 ## Sleep
 
@@ -79,7 +80,7 @@ The townsfolk aren't safe either. The things at night hunt anyone they find outs
 
 Talking to someone opens a menu: ask about getting out, about the things at night, about the other townsfolk, ask for a favor (coffee from Marisol makes running less tiring, bread from Ruth helps you get your breath back, Dale and Nessa hand over batteries, Eli shares a survival tip), or just chat. Options with something new to hear are marked.
 
-The buildings have working doors, clear glass windows you can see through in both directions, porches, shutters, chimneys and furnished interiors split into rooms. The Boone house and the farmhouse have a living room with a kitchen and fireplace, and a bedroom behind. The sheriff's office has two fully enclosed barred cells. The diner has a kitchen behind the counter, the Lantern has a storeroom where the Reillys sleep, and the clinic has a waiting room and an exam room. There's also a general store, a gas station and a water tower. The barn, Hal Cobb's house, the chapel, the store, the gas station and the empty house have no talisman.
+The buildings have working doors, clear glass windows you can see through in both directions, porches, shutters, chimneys and furnished interiors split into rooms. The Boone house and the farmhouse have a living room with a kitchen and fireplace, and a bedroom behind. The sheriff's office has two fully enclosed barred cells. The diner has a kitchen behind the counter, the Lantern has a storeroom where the Reillys sleep, and the clinic has a waiting room and an exam room. There's also a general store, a gas station, a water tower, a payphone outside the diner, power lines down the main street and picket fences in front of the houses. Abandoned cars sit around town and along the road; every one of them has something inside worth a look. The barn, Hal Cobb's house, the chapel, the store, the gas station and the empty house have no talisman.
 
 ## Sound
 
@@ -123,6 +124,6 @@ Most of them look like ordinary people with a smile that's too wide. Some you'll
 
 ## Tech
 
-A single `index.html` built with [three.js](https://threejs.org/) r128 (loaded from cdnjs). All models, textures and sounds are generated in code, so there are no asset files. Static geometry is merged by material into a handful of draw calls, and the forest and crops are instanced.
+A single `index.html` built with [three.js](https://threejs.org/) r128 (loaded from cdnjs). All models, textures and sounds are generated in code, so there are no asset files. Textures (clapboard, shingles, brick, stone, planks, asphalt) are painted from tileable noise at load time and mapped by world position, so they keep their scale on every surface. The sun moves across the sky and casts shadows that follow you, the flashlight casts its own shadows, and the night sky has stars and a moon. Static geometry is merged by material into a handful of draw calls, and the forest, grass, undergrowth and crops are instanced.
 
 For testing, open the page with `#debug` on the end of the URL. That exposes the game state as `window.__he` in the browser console, including `__he.step(n)` to fast-forward the simulation by `n` frames.
