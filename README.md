@@ -38,6 +38,12 @@ Then go to http://localhost:8000.
 
 You wake up in your wrecked car on the road south of town at 2 p.m. Open the trunk and take what you need, one thing at a time: your flashlight, two spare batteries, three road flares, a wool blanket, a thermos of cold coffee and an old road atlas. The flashlight drains while it's on (a set of batteries lasts about one night), so you'll want spares. Road flares burn red for about a minute of real time, and nothing from the woods will step inside their light, which can buy you a way out of a bad spot. The blanket makes sleeping on a floor or the ground less miserable. For more batteries: you can find them in the sheriff's office, the general store, the gas station and the Tanners' barn, and two of the townsfolk will give you some if you ask.
 
+## Saving
+
+Press Esc to pause, then **Save game**. You can save any time in daylight, but after dark only behind a talisman. The game also saves itself at dawn and whenever you wake up from a proper sleep. Next time you open the page, **Continue** picks up from whichever save is newer; **New game** starts over at your car without deleting your save until you save over it.
+
+Saves live in your browser's local storage, so they stay on that browser and that device. Everything you've done is kept: where you are, the time, what you're carrying, what you've learned and who told you, the talismans you've moved, the doors you've left open, the relics, and who in town is still alive.
+
 ## Sleep
 
 You have to sleep. Stay awake too long and you get tired, then exhausted, then delirious: your stamina shrinks and is slower to come back, the edges of the screen blur and darken, you lose seconds to microsleeps, and you start seeing and hearing things that aren't there (figures in your peripheral vision that vanish when you look, knocking at the door, footsteps behind you, a friend calling your name).

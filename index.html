@@ -72,6 +72,9 @@ html,body{height:100%;margin:0;background:var(--night);color:var(--ink);overflow
 .screen p{font-family:var(--font-hand);font-size:17px;line-height:1.6;margin:0;color:#cfc7b2;max-width:62ch}
 .keys{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:13px;color:var(--dim)}
 .keys kbd{font-family:var(--font-mono);color:var(--ink);border:1px solid rgba(232,225,207,.35);border-radius:3px;padding:1px 6px;font-size:12px;justify-self:start}
+.btnRow{display:flex;flex-wrap:wrap;gap:10px}
+.btn.ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+#saveNote{position:absolute;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);opacity:0;transition:opacity .6s}
 .btn{pointer-events:auto;justify-self:start;font-family:var(--font-mono);font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:var(--night);background:var(--ink);border:0;border-radius:3px;padding:12px 20px;cursor:pointer}
 .btn:focus-visible{outline:2px solid var(--warn);outline-offset:3px}
 .small{font-size:12px;color:var(--dim);font-family:var(--font-mono)}
@@ -127,6 +130,7 @@ html,body{height:100%;margin:0;background:var(--night);color:var(--ink);overflow
   <div id="hold" hidden><i></i></div>
   <div id="msg"></div>
   <div id="sub"></div>
+  <div id="saveNote"></div>
 </div>
 
 <div id="title" class="screen">
@@ -148,12 +152,13 @@ html,body{height:100%;margin:0;background:var(--night);color:var(--ink);overflow
     </div>
     <p class="small">Best with headphones. Sound tells you a lot about what is near.</p>
     <p class="small" id="touchWarn" hidden>This game needs a keyboard and mouse.</p>
-    <button class="btn" id="startBtn">Enter the town</button>
+    <div class="btnRow"><button class="btn" id="continueBtn" hidden>Continue</button><button class="btn" id="startBtn">Enter the town</button></div>
+    <p class="small" id="saveInfo" hidden></p>
   </div>
 </div>
 
 <div id="pause" class="screen" hidden>
-  <div class="inner"><h2>Paused</h2><p>The town waits. It always waits.</p><button class="btn" id="resumeBtn">Resume</button></div>
+  <div class="inner"><h2>Paused</h2><p>The town waits. It always waits.</p><div class="btnRow"><button class="btn" id="resumeBtn">Resume</button><button class="btn ghost" id="saveBtn">Save game</button><button class="btn ghost" id="quitBtn">Quit to title</button></div><p class="small" id="pauseNote"></p></div>
 </div>
 <div id="death" class="screen" hidden>
   <div class="inner"><h2>They found you.</h2><p id="deathTxt"></p></div>
@@ -378,6 +383,13 @@ const S = {
   relics:[], placed:0, exitOpen:false, crank:0, tunedT:0, freq:88.0, musicOn:true,
   know:{}, heard:[], notesRead:{}, visited:{}, seen:{}, chaseSting:0
 };
+// ---------- saving ----------
+// two slots in this browser: one you save to yourself, one the game writes at dawn and when you wake
+const SAVE_KEYS={manual:'harrowsEnd.save.manual', auto:'harrowsEnd.save.auto'};
+function readSave(slot){ try{ const t=localStorage.getItem(SAVE_KEYS[slot]); return t?JSON.parse(t):null; }catch(e){ return null; } }
+function latestSave(){ const a=readSave('manual'), b=readSave('auto'); if(!a) return b; if(!b) return a; return a.savedAt>=b.savedAt?a:b; }
+const PICKUPS=[]; // things in the world that can be taken (their .visible says whether they're still there)
+const PEEK=latestSave(); // random parts of the world (the radio frequency, where the figures fell) come from the save so they match
 const RELIC_NAMES={soldier:'Tin soldier',glyph:'Glyph stone',tape:'Cassette tape',musicbox:'Music box'};
 
 // ---------- doors ----------
@@ -603,7 +615,7 @@ function wakeUp(why,text){
   if(sl.hours>=4.5){ const was=S.insomnia; S.insomnia=clamp(S.insomnia-(S.dosed?0.6:0.3*sl.q),0,1); if(was>=0.25 && S.insomnia<0.25) t+=' For once you slept straight through. The jumpiness has gone out of you.'; }
   if(S.dosed) t='You wake slow and heavy from the draught. You don\'t remember a thing, which is the point. '+t;
   if(S.fatigue>0.4) t+=' You\'re still tired.';
-  S.dosed=false; showMsg(t,5);
+  S.dosed=false; showMsg(t,5); setTimeout(autoSave,50);
 }
 // something makes a noise while you sleep: maybe it wakes you
 function disturb(p,text){
@@ -693,7 +705,7 @@ function addNotePost(x,z,rotY,title,text,key,learnKeys){
   addInteract({x,y:1.35,z,r:2.4,label:()=> 'Read the note', act:openNoteFn(title,text,key,learnKeys)});
 }
 function addBatteries(x,y,z,count,text){
-  const g=new THREE.Group(); g.position.set(x,y,z); scene.add(g);
+  const g=new THREE.Group(); g.position.set(x,y,z); scene.add(g); PICKUPS.push(g);
   for(let i=0;i<count;i++){ const c=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.11,8),M.battery); c.rotation.z=Math.PI/2; c.position.set(0,0.03,(i-(count-1)/2)*0.07); g.add(c); }
   const it=addInteract({x,y,z,r:2.2,enabled:()=>g.visible,label:()=>`Take the batteries (${count})`,act:()=>{ g.visible=false; S.batteries+=count; sfx.pick(); showMsg(text||`${count} batteries. Enough to keep the light on a while longer.`); }});
   return g;
@@ -784,7 +796,7 @@ makeBuilding({id:'barn',wall:'board',name:'Barn',x:78,z:18,w:12,d:14,door:'W',co
 // Hal's map and notebook
 let halMapMesh;
 { const b=B.halHouse, p=Luv(b,-3.5,2.6);
-  halMapMesh=new THREE.Mesh(new THREE.PlaneGeometry(0.55,0.7),new THREE.MeshBasicMaterial({color:0xc9b98f})); halMapMesh.rotation.x=-Math.PI/2; halMapMesh.rotation.z=0.2; halMapMesh.position.set(p.x,0.8,p.z); scene.add(halMapMesh);
+  halMapMesh=new THREE.Mesh(new THREE.PlaneGeometry(0.55,0.7),new THREE.MeshBasicMaterial({color:0xc9b98f})); halMapMesh.rotation.x=-Math.PI/2; halMapMesh.rotation.z=0.2; halMapMesh.position.set(p.x,0.8,p.z); scene.add(halMapMesh); PICKUPS.push(halMapMesh);
   addInteract({x:p.x,y:0.8,z:p.z,r:2.4,enabled:()=>!S.hasMap,label:()=>"Take the hand-drawn map",act:()=>{ S.hasMap=true; halMapMesh.visible=false; sfx.pick(); learn('marks');
     showMsg("A map of the town and the woods around it, in pencil. Four places in the trees are marked with an X. Press M to look at it."); }});
   const q=Luv(b,-3.3,3.3); const nb=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.03,0.3),M.blanketR); nb.position.set(q.x,0.81,q.z); scene.add(nb);
@@ -797,7 +809,7 @@ let halMapMesh;
 // chapel altar, spare talisman, steeple
 let spareTal;
 { const b=B.chapel, p=Luv(b,0,b.D-1.4);
-  spareTal=makeTalismanMesh(); spareTal.position.set(p.x,1.08,p.z); spareTal.rotation.x=-Math.PI/2; scene.add(spareTal);
+  spareTal=makeTalismanMesh(); spareTal.position.set(p.x,1.08,p.z); spareTal.rotation.x=-Math.PI/2; scene.add(spareTal); PICKUPS.push(spareTal);
   addInteract({x:p.x,y:1.1,z:p.z,r:2.6,enabled:()=>spareTal.visible,label:()=> S.carry?'A spare talisman (your hands are full)':'Take the spare talisman',act:()=>{
     if(S.carry){ showMsg('You can only carry one stone at a time.'); return; }
     spareTal.visible=false; S.carry=true; sfx.pick(); showMsg('A spare stone, still on its cord. You could hang it anywhere you need to sleep.'); }});
@@ -812,7 +824,7 @@ let spareTal;
 { const p=Luv(B.gasBooth,-0.4,2.6); addBatteries(p.x,1.05,p.z,2); }
 { const p=Luv(B.store,-1.9,1.6), g=new THREE.Group(); g.position.set(p.x,1.05,p.z); scene.add(g);
   box(0.12,0.04,0.12,lam(0x8a8a90),0,0.02,0,g); for(const o of [-0.025,0.025]){ const c=new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.018,0.03,8),lam(0xe8d8a0)); c.position.set(o,0.055,0); g.add(c); }
-  addInteract({x:p.x,y:1.1,z:p.z,r:2.2,enabled:()=>g.visible,label:()=>'Take the wax earplugs',act:()=>{ g.visible=false; S.earplugs=true; sfx.pick(); showMsg("A tin of wax earplugs. <em>For the light sleeper.</em> Out here everyone is a light sleeper. (Things at the door are less likely to wake you.)",6); }}); }
+  PICKUPS.push(g); addInteract({x:p.x,y:1.1,z:p.z,r:2.2,enabled:()=>g.visible,label:()=>'Take the wax earplugs',act:()=>{ g.visible=false; S.earplugs=true; sfx.pick(); showMsg("A tin of wax earplugs. <em>For the light sleeper.</em> Out here everyone is a light sleeper. (Things at the door are less likely to wake you.)",6); }}); }
 { const p=Luv(B.barn,4.4,3.2); addBatteries(p.x,0.81,p.z,2,'A shoebox of batteries on top of the crate, right where Abel said.'); }
 
 // water tower, lamps, mailboxes, benches, the farm road
@@ -1018,7 +1030,7 @@ const tokens=[];
   box(0.9,1.8,0.02,M.dark,3.6,1.2,1.37,g);
   addBox(x,z,9.6,2.8);
   addNotePost(x+3.6,z+3,0.2,'Taped to the bus door','Three of my passengers ran into the trees when we came off the road. They\'re still out there. Little carved things now, but they\'re mine.<br><br>Bring all three back and you can have what I kept for the trip home.','bus',['bus']);
-  for(let i=0;i<3;i++){ let tx,tz; do{ const a=Math.random()*Math.PI*2, r=rnd(14,34); tx=x+Math.cos(a)*r; tz=z+Math.sin(a)*r; } while(tokens.some(t=>Math.hypot(t.x-tx,t.z-tz)<10));
+  for(let i=0;i<3;i++){ let tx,tz; if(PEEK&&PEEK.tokens&&PEEK.tokens[i]){ tx=PEEK.tokens[i].x; tz=PEEK.tokens[i].z; } else do{ const a=Math.random()*Math.PI*2, r=rnd(14,34); tx=x+Math.cos(a)*r; tz=z+Math.sin(a)*r; } while(tokens.some(t=>Math.hypot(t.x-tx,t.z-tz)<10));
     const tg=new THREE.Group(); tg.position.set(tx,0,tz); scene.add(tg);
     const woodGlow=lam(0xa0784c,{emissive:0x4a2a10,emissiveIntensity:0.6});
     const body=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.11,0.32,8),woodGlow); body.position.y=0.16; tg.add(body);
@@ -1059,7 +1071,7 @@ function touchStone(so){
     if(S.stoneSeq>=5){ S.stonesDone=true; grantRelic('glyph','All five stones are lit. The flat stone in the middle cracks open, and inside is a smooth black stone marked with an eye.'); }
   } else { for(const s of stoneObjs){ s.lit=false; s.mat.emissiveIntensity=0; s.gl.material.emissiveIntensity=0; } S.stoneSeq=0; sfx.thud(); showMsg('The light drains out of every stone at once. Wrong order.'); }
 }
-const RADIO_FREQ = Math.round(rnd(89,106)*10)/10;
+const RADIO_FREQ = PEEK&&PEEK.radioFreq ? PEEK.radioFreq : Math.round(rnd(89,106)*10)/10;
 const radioShack = makeBuilding({id:'shack',name:'Radio shack',x:-162,z:150,w:5,d:4.4,door:'W',color:0x58605a,talisman:false,h:2.8,roofH:1.2});
 const wellShed = makeBuilding({id:'shed',name:'Well shed',x:171,z:152,w:4.4,d:4.4,door:'W',color:0x5d5246,talisman:false,h:2.8,roofH:1.4,interior(b){ F.crate(b,-1.2,3.4); F.hay(b,1.1,3.6,1.0,0.6); }});
 let towerLight;
@@ -1379,6 +1391,15 @@ function findPrey(c){
   return best;
 }
 const shortName=a=>a.def.name.startsWith('Dr.')?'Dr. Vance':a.def.name.split(' ')[0];
+function dropThings(a){
+  const nm=shortName(a); a.deathPos=[a.pos.x,a.pos.z];
+  const x=a.pos.x, z=a.pos.z, keys=a.def.topics.map(t=>t.learn).filter(Boolean);
+  const mk=new THREE.Group(); box(0.5,0.08,0.35,lam(0x5a4632),0,0.04,0,mk); box(0.3,0.02,0.22,lam(0xd8d0b8),0.05,0.09,0,mk); mk.position.set(x,0,z); mk.rotation.y=Math.random()*6; scene.add(mk);
+  addInteract({x,y:0.4,z,r:2.2,enabled:()=>!a.thingsTaken,label:()=>`${nm}'s things`,
+    act:()=>{ a.thingsTaken=true; scene.remove(mk); const fresh=keys.filter(k=>!S.know[k]);
+      showMsg(fresh.length?`A coat, a shoe, a folded page in ${nm}'s handwriting. Whatever they meant to tell you, it's written here.`:`A coat and a shoe. That's all that's left of ${nm}.`,6);
+      for(const k of fresh) learn(k); }});
+}
 function seizeNPC(a,c){
   if(a.seized) return; a.seized=true; a.seizeT=0; a.screamed=true; if(talk&&talk.a===a) endTalk();
   c.state='feed'; c.prey=a; sfx.screamAt(a.pos.x,a.pos.z);
@@ -1398,12 +1419,7 @@ function killNPC(a,c){
   const nm=shortName(a), d=dist(a.pos,S.pos);
   if(d<45) showMsg(`<span style="color:#e2574c">${nm} screams, and then stops.</span>`,6);
   else if(d<140) showMsg('Somewhere out in the dark, someone screams. Then nothing.',5);
-  const x=a.pos.x, z=a.pos.z, keys=a.def.topics.map(t=>t.learn).filter(Boolean);
-  const mk=new THREE.Group(); box(0.5,0.08,0.35,lam(0x5a4632),0,0.04,0,mk); box(0.3,0.02,0.22,lam(0xd8d0b8),0.05,0.09,0,mk); mk.position.set(x,0,z); mk.rotation.y=Math.random()*6; scene.add(mk);
-  addInteract({x,y:0.4,z,r:2.2,enabled:()=>!a.thingsTaken,label:()=>`${nm}'s things`,
-    act:()=>{ a.thingsTaken=true; scene.remove(mk); const fresh=keys.filter(k=>!S.know[k]);
-      showMsg(fresh.length?`A coat, a shoe, a folded page in ${nm}'s handwriting. Whatever they meant to tell you, it's written here.`:`A coat and a shoe. That's all that's left of ${nm}.`,6);
-      for(const k of fresh) learn(k); }});
+  dropThings(a);
   if(c){ c.prey=null; c.state='wander'; }
 }
 function updateCreatures(dt,pb,safe,extraC){
@@ -2016,10 +2032,16 @@ addEventListener('mouseup',()=>dragging=false);
 addEventListener('mousemove',e=>{ if(!S.started||S.paused) return; if(S.locked || (S.noLock && dragging)){ S.yaw-=e.movementX*0.0022; S.pitch=clamp(S.pitch-e.movementY*0.0022,-1.45,1.45); } });
 function requestLock(){ try{ const p=cvs.requestPointerLock(); if(p && p.catch) p.catch(()=>{ S.noLock=true; }); }catch(e){ S.noLock=true; } }
 document.addEventListener('pointerlockchange',()=>{ S.locked=document.pointerLockElement===cvs;
-  if(S.locked){ S.paused=false; $('pause').hidden=true; if(A.ctx) A.ctx.resume(); } else if(S.started && !S.dead && !S.won){ S.paused=true; $('pause').hidden=false; if(A.ctx) A.ctx.suspend(); } });
+  if(S.locked){ S.paused=false; $('pause').hidden=true; if(A.ctx) A.ctx.resume(); } else if(S.started && !S.dead && !S.won){ S.paused=true; $('pause').hidden=false; $('pauseNote').textContent=canSave()||''; if(A.ctx) A.ctx.suspend(); } });
 document.addEventListener('pointerlockerror',()=>{ S.noLock=true; });
-$('startBtn').addEventListener('click',()=>{ initAudio(); if(A.ctx&&A.ctx.state==='suspended') A.ctx.resume(); $('title').hidden=true; $('hud').hidden=false; S.started=true; S.hour=14; S.time=0; requestLock();
-  showMsg('You come to with your forehead against the steering wheel. Steam rises off the hood. Up the road, through the fog, there are buildings. Your things are in the trunk.',9); });
+$('startBtn').addEventListener('click',()=>beginGame(null));
+if(PEEK){ const hh=Math.floor(PEEK.S.hour), mm=Math.floor((PEEK.S.hour%1)*60);
+  $('continueBtn').hidden=false; $('continueBtn').textContent=`Continue · Day ${PEEK.S.day}, ${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`; $('startBtn').textContent='New game'; $('startBtn').classList.add('ghost');
+  $('saveInfo').hidden=false; $('saveInfo').textContent='A new game starts over at your car. Your saved game stays until you save over it.'; }
+$('continueBtn').addEventListener('click',()=>beginGame(latestSave()));
+$('saveBtn').addEventListener('click',()=>{ const why=canSave(); if(why){ $('pauseNote').textContent=why; return; }
+  $('pauseNote').textContent=writeSave('manual')?`Saved. Day ${S.day}, ${String(Math.floor(S.hour)).padStart(2,'0')}:${String(Math.floor((S.hour%1)*60)).padStart(2,'0')}.`:'Could not save. This browser is blocking storage.'; });
+$('quitBtn').addEventListener('click',()=>location.reload());
 $('resumeBtn').addEventListener('click',()=>{ $('pause').hidden=true; S.paused=false; requestLock(); if(A.ctx) A.ctx.resume(); });
 $('againBtn').addEventListener('click',()=>location.reload());
 
@@ -2083,6 +2105,45 @@ function updateGrab(dt){
   if(t>0.45 && !G.bit){ G.bit=true; sfx.bite(); }
   if(t>1.55){ S.grab=null; $('hud').classList.remove('grabbed'); c.g.rotation.x=0; c.armL.rotation.z=c.armR.rotation.z=0; if(c.mouth){ c.mouth.scale.set(0.055,c.mouth.userData.rest,0.03); c.mouth.position.y=-0.045; } die(); }
 }
+const S_SKIP=new Set(['started','paused','dead','won','ui','locked','noLock','sleep','grab','late','lostTonight','sprinting','deathT','shake','bob','lastStep','time']);
+function snapshot(){
+  const st={}; for(const k in S) if(!S_SKIP.has(k)) st[k]=S[k];
+  return { v:1, savedAt:Date.now(), radioFreq:RADIO_FREQ, S:JSON.parse(JSON.stringify(st)), late:S.late?S.late.def.id:null,
+    bld:buildings.map(b=>({tal:b.talisman, door:b.door.open})),
+    pick:PICKUPS.map(g=>g.visible), trunk:trunkItems.map(g=>g.visible),
+    tokens:tokens.map(t=>({x:t.x,z:t.z,got:t.got})), stones:stoneObjs.map(o=>o.lit),
+    npcs:npcs.map(a=>({id:a.def.id, dead:a.dead, met:a.met, favorDone:a.favorDone, favorDay:a.favorDay, askedThings:a.askedThings, otherI:a.otherI, thingsTaken:!!a.thingsTaken, deathPos:a.deathPos||null, topics:a.def.topics.map(t=>!!t.done)})) };
+}
+function canSave(){ if(!S.started||S.dead||S.grab||S.sleep||S.won) return "You can't save right now.";
+  const b=buildingAt(S.pos.x,S.pos.z); if((isNight()||S.hour>=19.5) && !(b&&b.talisman)) return 'Not out here, not after dark. Get behind a talisman first.';
+  return null; }
+function writeSave(slot){ try{ localStorage.setItem(SAVE_KEYS[slot],JSON.stringify(snapshot())); return true; }catch(e){ return false; } }
+let saveNoteT=0;
+function saveNote(t){ $('saveNote').textContent=t; $('saveNote').style.opacity=1; saveNoteT=2.5; }
+function autoSave(){ if(canSave()) return; if(writeSave('auto')) saveNote('Saved'); }
+function applySave(d){
+  for(const k in d.S) S[k]=d.S[k];
+  S.late=d.late?npcs.find(a=>a.def.id===d.late)||null:null; S.lostTonight=[]; S.sleep=null; S.grab=null; S.flashlight=false;
+  buildings.forEach((b,i)=>{ const o=d.bld[i]; if(!o) return; b.talisman=o.tal; b.tal.visible=o.tal; b.door.open=o.door; b.door.ang=o.door?b.door.sign*1.75:0; b.door.autoT=0; b.door.pivot.rotation.y=b.door.base+b.door.ang; });
+  PICKUPS.forEach((g,i)=>{ if(d.pick[i]!=null) g.visible=d.pick[i]; });
+  trunkItems.forEach((g,i)=>{ if(d.trunk[i]!=null) g.visible=d.trunk[i]; });
+  tokens.forEach((t,i)=>{ const o=d.tokens[i]; if(o){ t.got=o.got; t.g.visible=!o.got; } });
+  stoneObjs.forEach((so,i)=>{ so.lit=!!d.stones[i]; so.mat.emissiveIntensity=so.lit?0.35:0; so.gl.material.emissiveIntensity=so.lit?0.9:0; });
+  for(let i=0;i<Math.min(S.placed,wayGems.length);i++) wayGems[i].material.color.setHex(0x9fe0cc);
+  for(const o of d.npcs){ const a=npcs.find(n=>n.def.id===o.id); if(!a) continue;
+    Object.assign(a,{met:o.met,favorDone:o.favorDone,favorDay:o.favorDay,askedThings:o.askedThings,otherI:o.otherI,thingsTaken:o.thingsTaken,place:null,goal:null,via:null,seized:false});
+    a.def.topics.forEach((t,i)=>t.done=!!o.topics[i]);
+    if(o.dead){ a.dead=true; scene.remove(a.g); if(o.deathPos){ a.pos.x=o.deathPos[0]; a.pos.z=o.deathPos[1]; if(!o.thingsTaken) dropThings(a); } continue; }
+    const want=desiredPlace(a); const p=placePoint(want)||PLACES[want].points[0]; placeActor(a,p.x,p.z); }
+  clearCreatures(); if(isNight()) spawnNight();
+  hourPrev=S.hour; trunkLid.rotation.x=S.trunkOpen?-1.15:0;
+}
+function beginGame(save){
+  initAudio(); if(A.ctx&&A.ctx.state==='suspended') A.ctx.resume(); $('title').hidden=true; $('hud').hidden=false; S.started=true; S.time=0;
+  if(save){ applySave(save); showMsg(`Day ${S.day}. ${String(Math.floor(S.hour)).padStart(2,'0')}:${String(Math.floor((S.hour%1)*60)).padStart(2,'0')}. You pick up where you left off.`,5); }
+  else { S.hour=14; showMsg('You come to with your forehead against the steering wheel. Steam rises off the hood. Up the road, through the fog, there are buildings. Your things are in the trunk.',9); }
+  requestLock();
+}
 function die(){
   if(S.dead) return; S.dead=true; S.deathT=0; S.deaths++; sfx.death(); closeUI();
   const finder=npcs.find(a=>a.def.id==='marisol'&&!a.dead)||npcs.find(a=>!a.dead);
@@ -2117,7 +2178,7 @@ function update(dt){
   if(crossed(hourPrev,S.hour,18.5)) showMsg('The light is going. People are heading indoors. You should too.'+(S.late&&!S.late.dead?` Nobody has seen ${shortName(S.late)} start for home.`:''));
   if(crossed(hourPrev,S.hour,19.5)) sfx.bell();
   if(crossed(hourPrev,S.hour,20)){ spawnNight(); showMsg(safe?'Night. Stay where you are.':'Night. They\'re out of the trees.'); }
-  if(crossed(hourPrev,S.hour,6)){ S.day++; S.fed=false; S.coffee=false; for(const c of creatures){ c.state='leave'; c.leaveT=0; } showMsg(`Day ${S.day}. They walk back into the trees as if nothing happened.`+mourn()); sfx.dawn(); pickLate(); }
+  if(crossed(hourPrev,S.hour,6)){ S.day++; S.fed=false; S.coffee=false; for(const c of creatures){ c.state='leave'; c.leaveT=0; } showMsg(`Day ${S.day}. They walk back into the trees as if nothing happened.`+mourn()); sfx.dawn(); pickLate(); setTimeout(autoSave,50); }
 
   const closedDoors=doors.filter(d=>!d.open).map(d=>d.box);
   const frozen=S.ui==='tuner'||S.ui==='note'||S.ui==='dialog'||!!S.sleep;
@@ -2185,6 +2246,7 @@ function update(dt){
   updateHUD(pb,safe,it,waiting);
   if(msgT>0){ msgT-=dt; if(msgT<=0) $('msg').style.opacity=0; }
   if(subT>0){ subT-=dt; if(subT<=0) $('sub').style.opacity=0; }
+  if(saveNoteT>0){ saveNoteT-=dt; if(saveNoteT<=0) $('saveNote').style.opacity=0; }
   for(const t of tokens) if(!t.got) t.g.rotation.y+=dt*0.6;
   trunkLid.rotation.x=lerp(trunkLid.rotation.x,S.trunkOpen?-1.15:0,dt*3); updateFlares(dt);
   if(S.ui==='map' && Math.random()<0.1) drawMap();
@@ -2238,7 +2300,7 @@ function frame(now){
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-if(location.hash==='#debug') window.__he={S,Luv,startGrab,seizeNPC,talkPose,get talk(){return talk;},startTalk,makeCreature,KINDS,idlePose,dropFlare,flares,trunkItems,renderer,scene,camera,creatures,startSleep,wakeUp,disturb,delirium,hallucinate,killNPC,pickLate,buildings,keys,npcs,doors,B,learn,step:(n)=>{ for(let i=0;i<n && !S.dead && !S.won;i++) update(0.05); }};
+if(location.hash==='#debug') window.__he={S,Luv,snapshot,applySave,writeSave,readSave,canSave,PICKUPS,tokens,startGrab,seizeNPC,talkPose,get talk(){return talk;},startTalk,makeCreature,KINDS,idlePose,dropFlare,flares,trunkItems,renderer,scene,camera,creatures,startSleep,wakeUp,disturb,delirium,hallucinate,killNPC,pickLate,buildings,keys,npcs,doors,B,learn,step:(n)=>{ for(let i=0;i<n && !S.dead && !S.won;i++) update(0.05); }};
 })();
 </script>
 </body>
