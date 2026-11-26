@@ -29,6 +29,7 @@ html,body{height:100%;margin:0;background:var(--night);color:var(--ink);overflow
 #vignette{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.75) 100%)}
 #danger{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 35%,rgba(120,8,4,.65) 100%);opacity:0;transition:opacity .25s}
 #hud{position:fixed;inset:0;pointer-events:none}
+#hud.grabbed #prompt,#hud.grabbed #cross{display:none}
 #haze{position:fixed;inset:0;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,rgba(40,30,50,0) 30%,rgba(18,10,24,.85) 100%)}
 #sleep{position:fixed;inset:0;pointer-events:none;background:#030304;opacity:0;transition:opacity .9s;display:flex;align-items:flex-end;justify-content:center}
 #sleep.blink{transition:opacity .12s}
@@ -1254,13 +1255,17 @@ function makeHumanoid(o){
   if(o.topHat){ hp(H,new THREE.CylinderGeometry(0.19,0.19,0.012,20),0x0e0e10,0,0.115,0,1,1,1.1); hp(H,taper(0.11,0.105,0.3,16),0x0e0e10,0,0.27,0); hp(H,taper(0.108,0.108,0.04,16),0x4a1016,0,0.145,0); }
   if(o.nurseCap){ hp(H,HG.box,0xf4f2ea,0,0.13,0.03,0.16,0.06,0.1,-0.3); hp(H,HG.box,0xa01818,0,0.14,0.08,0.04,0.012,0.004,-0.3); hp(H,HG.box,0xa01818,0,0.14,0.08,0.012,0.04,0.004,-0.3); }
   bakeParts(H,head,mat);
+  // the mouth is its own little mesh so it can open: to talk, or (for them) far wider than it should
+  hp(H,HG.sph,0x1a0606,0,0,0,1,1,1); const mouth=bakeParts(H,head,mat);
+  if(creature){ mouth.position.set(0,-0.045,0.096); mouth.scale.set(0.055,0.003,0.03); } else { mouth.position.set(0,-0.064,0.112); mouth.scale.set(0.02,0.0015,0.008); }
+  mouth.userData.rest=mouth.scale.y;
   if(o.veil){ const vm=phong({color:0xf4f2ea,transparent:true,opacity:0.5,side:THREE.DoubleSide,depthWrite:false});
     const v=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.3,1.15,16,1,true,Math.PI*0.6,Math.PI*0.8),vm); v.position.set(0,-0.45,-0.02); head.add(v);
     const v2=new THREE.Mesh(new THREE.SphereGeometry(0.135,14,8,Math.PI*0.15,Math.PI*0.7,0.2,Math.PI*0.5),vm); v2.position.set(0,-0.01,0.012); v2.scale.set(1,1.1,1.05); head.add(v2);
     const ti=new THREE.Mesh(new THREE.TorusGeometry(0.1,0.01,6,16,Math.PI),phong({color:0xd8d0b0,emissive:0x2a2a20})); ti.position.y=0.11; ti.rotation.x=-0.4; head.add(ti); }
   g.scale.setScalar(o.scale||1);
   scene.add(g);
-  return {g,pos:g.position,legL,legR,kneeL,kneeR,armL,armR,elL,elR,elbow:o.elbow??-0.12,head,armHold:o.armHold??null,blinkT:rnd(1,5),blink:!creature,phase:Math.random()*6,seed:Math.random()*10,via:null,viaT:0,stuckT:0,lastX:g.position.x,lastZ:g.position.z,sideT:0,sideDir:1,blocked:false,stepAcc:0};
+  return {g,pos:g.position,legL,legR,kneeL,kneeR,armL,armR,elL,elR,elbow:o.elbow??-0.12,head,mouth,voice:(o.scale||1)<0.85?330:o.dress||o.longHair||o.longDress?235:150,armHold:o.armHold??null,phase:Math.random()*6,seed:Math.random()*10,via:null,viaT:0,stuckT:0,lastX:g.position.x,lastZ:g.position.z,sideT:0,sideDir:1,blocked:false,stepAcc:0};
 }
 function placeActor(a,x,z){ a.pos.x=x; a.pos.z=z; a.lastX=x; a.lastZ=z; }
 
@@ -1374,9 +1379,22 @@ function findPrey(c){
   return best;
 }
 const shortName=a=>a.def.name.startsWith('Dr.')?'Dr. Vance':a.def.name.split(' ')[0];
+function seizeNPC(a,c){
+  if(a.seized) return; a.seized=true; a.seizeT=0; a.screamed=true; if(talk&&talk.a===a) endTalk();
+  c.state='feed'; c.prey=a; sfx.screamAt(a.pos.x,a.pos.z);
+  const d=dist(a.pos,S.pos); if(d<45) showSay(shortName(a),pick(['No! No, get off me!','Help me! Somebody!','Let go! Let go!']));
+}
+// held: they twist and push and kick, and then they fall
+function seizedPose(a,dt){
+  if(!creatures.some(c=>c.state==='feed'&&c.prey===a)){ a.seized=false; a.seizeT=0; a.g.rotation.x=0; a.g.rotation.z=0; a.g.position.y=0; return; }
+  a.seizeT=(a.seizeT||0)+dt; const t=a.seizeT, f=Math.sin(t*17), g=Math.sin(t*13+1);
+  if(t<1.4){ a.armL.rotation.x=-1.2+f*0.5; a.armR.rotation.x=-1.0-g*0.5; a.armL.rotation.z=0.3+g*0.2; a.armR.rotation.z=-0.3-f*0.2; a.elL.rotation.x=-0.8+g*0.4; a.elR.rotation.x=-0.6+f*0.4;
+    a.legL.rotation.x=f*0.3; a.legR.rotation.x=-g*0.3; a.head.rotation.x=-0.35+f*0.1; a.head.rotation.z=g*0.25; a.g.rotation.z=f*0.05; a.mouth&&(a.mouth.scale.y=a.mouth.userData.rest+0.012); }
+  else { const k=smooth((t-1.4)/0.6); a.g.rotation.x=-k*1.45; a.g.position.y=k*0.12; a.armL.rotation.x=lerp(a.armL.rotation.x,-2.6,k); a.armR.rotation.x=lerp(a.armR.rotation.x,-2.4,k); a.head.rotation.x=lerp(a.head.rotation.x,0.3,k); a.mouth&&(a.mouth.scale.y=lerp(a.mouth.scale.y,a.mouth.userData.rest,k)); }
+}
 function killNPC(a,c){
   a.dead=true; S.lostTonight.push(a); if(talk&&talk.a===a) endTalk();
-  scene.remove(a.g); sfx.screamAt(a.pos.x,a.pos.z); disturb(dist(a.pos,S.pos)<60?0.7:0.3,'A scream.');
+  scene.remove(a.g); if(!a.screamed) sfx.screamAt(a.pos.x,a.pos.z); a.seized=false; disturb(dist(a.pos,S.pos)<60?0.7:0.3,'A scream.');
   const nm=shortName(a), d=dist(a.pos,S.pos);
   if(d<45) showMsg(`<span style="color:#e2574c">${nm} screams, and then stops.</span>`,6);
   else if(d<140) showMsg('Somewhere out in the dark, someone screams. Then nothing.',5);
@@ -1402,15 +1420,15 @@ function updateCreatures(dt,pb,safe,extraC){
     const K=c.K||{};
     if(c.leader && (!creatures.includes(c.leader) || c.leader.state==='leave')) c.leader=null;
     const detect=(S.flashlight?42:26)+(S.sprinting?12:0);
-    if(c.prey && !npcExposed(c.prey)){ c.prey=null; if(c.state==='hunt') c.state='wander'; }
+    if(c.prey && c.state!=='feed' && !npcExposed(c.prey)){ c.prey=null; if(c.state==='hunt') c.state='wander'; }
     if(!c.prey && (c.state==='wander'||c.state==='lurk') && !c.leader){ c.preyT=(c.preyT||0)-dt; if(c.preyT<=0){ c.preyT=1; c.prey=findPrey(c); if(c.prey) c.state='hunt'; } }
     if(c.kindId && !S.seen[c.kindId] && d<20 && !S.sleep){ S.seen[c.kindId]=true; sfx.sightSting(); showMsg(`<span style="color:#e2574c">${K.title}.</span> ${K.desc}`,8); }
-    if(safe && c.state!=='hunt'){ if(c.state==='chase' || (c.state!=='lurk' && d<40) || (K.rounds&&d<60)){ if(c.state!=='lurk'){ c.state='lurk'; c.alerted=false;
+    if(safe && c.state!=='hunt' && c.state!=='feed'){ if(c.state==='chase' || (c.state!=='lurk' && d<40) || (K.rounds&&d<60)){ if(c.state!=='lurk'){ c.state='lurk'; c.alerted=false;
         if(K.rounds) c.lurkPt={x:pb.doorOut.x+pb.n[0]*(pb.porch?1.2:0.2), z:pb.doorOut.z+pb.n[1]*(pb.porch?1.2:0.2)};
         else if(pb.windows.length && Math.random()<0.55){ const w=pick(pb.windows); c.lurkPt={x:w.x,z:w.z}; }
         else { const o=rnd(-2.6,2.6), out=rnd(0.6,3.2)+(pb.porch?2.6:0); c.lurkPt={x:pb.doorOut.x+pb.t[0]*o+pb.n[0]*out, z:pb.doorOut.z+pb.t[1]*o+pb.n[1]*out}; } } } }
     else if(c.state==='lurk' && !safe){ c.state='chase'; }
-    else if(c.alerted || d<detect){ if(c.state!=='chase'){ c.state='chase'; if(S.time-S.chaseSting>14 || K.caller){ S.chaseSting=S.time; sfx.sting(); if(d<30 && !c.leader) showSub(creatureLine(c,K.chase||CHASE_LINES)); } } }
+    else if(c.state!=='feed' && (c.alerted || d<detect)){ if(c.state!=='chase'){ c.state='chase'; if(S.time-S.chaseSting>14 || K.caller){ S.chaseSting=S.time; sfx.sting(); if(d<30 && !c.leader) showSub(creatureLine(c,K.chase||CHASE_LINES)); } } }
     else if(c.state==='chase' && d>75 && !K.relentless){ c.state='wander'; }
     if(c.leader && c.leader.state==='lurk' && c.state!=='lurk' && safe){ c.state='lurk'; }
     if(c.leader && c.state==='lurk' && c.leader.lurkPt) c.lurkPt={x:c.leader.lurkPt.x+pb.t[0]*1.1, z:c.leader.lurkPt.z+pb.t[1]*1.1};
@@ -1429,11 +1447,18 @@ function updateCreatures(dt,pb,safe,extraC){
         else { spd=0; c.g.rotation.y=Math.atan2(S.pos.x-c.pos.x,S.pos.z-c.pos.z); idlePose(c,dt); c.pos.y=Math.abs(Math.sin(S.time*9))*0.08; const s=Math.sin(S.time*9)*0.25; c.legL.rotation.x=s; c.legR.rotation.x=-s; } }
       else { const goal=(c.leader && d>6)?besideLeader(c):S.pos; spd=c.leader?Math.min(baseSpeed+0.5,WALK):baseSpeed; moveActor(c,navTarget(c,goal,false),spd,dt,extraC); }
       if(d<26 && spd>0){ c.stepAcc+=spd*dt; if(c.stepAcc>1.25){ c.stepAcc=0; sfx.stepAt(c.pos.x,c.pos.z); } }
-      if(d<1.05 && !safe){ die(); return {nearest,nearestChase}; }
+      if(d<1.05 && !safe){ startGrab(c); return {nearest,nearestChase}; }
+    } else if(c.state==='feed'){
+      const v=c.prey; if(!v||v.dead){ c.state='wander'; c.prey=null; }
+      else if(dist(c.pos,v.pos)>1.7){ v.seized=false; v.seizeT=0; v.g.rotation.x=0; c.state='hunt'; c.g.rotation.x=0; // driven off, by a flare
+        if(dist(v.pos,S.pos)<30){ const nm=shortName(v); showSay(nm,'Go! Go, go!'); } }
+      else { c.g.rotation.y=Math.atan2(v.pos.x-c.pos.x,v.pos.z-c.pos.z); c.g.rotation.x=0.15; c.armL.rotation.x=-1.4; c.armR.rotation.x=-1.4; c.armL.rotation.z=-0.35; c.armR.rotation.z=0.35; c.elL.rotation.x=c.elR.rotation.x=-0.4;
+        c.head.rotation.x=0.25; if(c.mouth) c.mouth.scale.y=lerp(c.mouth.scale.y,0.06,dt*4);
+        if(v.seizeT>2.1){ c.g.rotation.x=0; c.armL.rotation.z=c.armR.rotation.z=0; if(c.mouth) c.mouth.scale.y=c.mouth.userData.rest; killNPC(v,c); } }
     } else if(c.state==='hunt'){
       const p=c.prey; moveActor(c,navTarget(c,p.pos,false),baseSpeed,dt,extraC);
       if(d<26){ c.stepAcc+=baseSpeed*dt; if(c.stepAcc>1.25){ c.stepAcc=0; sfx.stepAt(c.pos.x,c.pos.z); } }
-      if(dist(c.pos,p.pos)<1.05) killNPC(p,c);
+      if(dist(c.pos,p.pos)<1.05) seizeNPC(p,c);
     } else if(c.state==='lurk'){
       const dl=dist(c.pos,c.lurkPt);
       if(dl>0.5) moveActor(c,navTarget(c,c.lurkPt,false),K.rounds?2.2:1.6,dt,extraC);
@@ -1484,7 +1509,7 @@ function moveActor(a,t,speed,dt,extra){
     a.stuckT=0; a.lastX=a.pos.x; a.lastZ=a.pos.z; }
   a.g.rotation.y=Math.atan2(dx,dz);
   a.phase+=dt*speed*2.3; const sw=Math.sin(a.phase)*Math.min(0.75,speed*0.16);
-  a.legL.rotation.x=sw; a.legR.rotation.x=-sw;
+  a.legL.rotation.x=sw; a.legR.rotation.x=-sw; resetArmsZ(a); if(a.kind==='npc') mouthAnim(a,dt,(a.sayT||0)>0);
   const kb=Math.min(0.75,speed*0.16)*1.3; a.kneeL.rotation.x=Math.max(0,-Math.cos(a.phase))*kb; a.kneeR.rotation.x=Math.max(0,Math.cos(a.phase))*kb;
   a.elL.rotation.x=a.elbow-(a.armHold==null?Math.max(0,-sw)*0.5:0); a.elR.rotation.x=a.elbow-(a.armHold==null?Math.max(0,sw)*0.5:0);
   if(a.armHold!=null){ a.armL.rotation.x=a.armHold+sw*0.08; a.armR.rotation.x=a.armHold-sw*0.08; }
@@ -1492,7 +1517,35 @@ function moveActor(a,t,speed,dt,extra){
   a.pos.y=0;
   a.head.rotation.z=a.kind==='creature'?Math.sin(S.time*0.6+a.seed)*0.12:0; a.head.rotation.x=0;
 }
-function idlePose(a,dt,creepy){ a.legL.rotation.x*=0.9; a.legR.rotation.x*=0.9; a.kneeL.rotation.x*=0.9; a.kneeR.rotation.x*=0.9; a.elL.rotation.x=lerp(a.elL.rotation.x,a.elbow,dt*4); a.elR.rotation.x=lerp(a.elR.rotation.x,a.elbow,dt*4);
+// townsfolk talk with their mouths, hands and heads
+function talkPose(a,dt,speaking){
+  a.legL.rotation.x*=0.9; a.legR.rotation.x*=0.9; a.kneeL.rotation.x*=0.9; a.kneeR.rotation.x*=0.9;
+  a.gT=(a.gT||0)-dt;
+  if(a.gT<=0){ a.gT=rnd(1.1,2.4); const g=speaking?Math.floor(Math.random()*5):(Math.random()<0.7?0:4);
+    a.gest=[ // [armL x, armL z, elbowL, armR x, armR z, elbowR]
+      [0,0,a.elbow,0,0,a.elbow],                        // hands down
+      [-0.25,0,-1.1,0,0,a.elbow],                       // one hand up, explaining
+      [-0.3,0.25,-0.9,-0.3,-0.25,-0.9],                 // both hands open
+      [0,0,a.elbow,-0.6,0,-0.9],                        // pointing off somewhere
+      [0.15,0.3,-1.9,0.15,-0.3,-1.9],                   // arms folded-ish, hands on hips
+    ][g]; }
+  const G=a.gest||[0,0,a.elbow,0,0,a.elbow], k=dt*3.5;
+  a.armL.rotation.x=lerp(a.armL.rotation.x,G[0],k); a.armL.rotation.z=lerp(a.armL.rotation.z,G[1],k); a.elL.rotation.x=lerp(a.elL.rotation.x,G[2],k);
+  a.armR.rotation.x=lerp(a.armR.rotation.x,G[3],k); a.armR.rotation.z=lerp(a.armR.rotation.z,G[4],k); a.elR.rotation.x=lerp(a.elR.rotation.x,G[5],k);
+  // little nods on the stressed syllables, a tilt while listening
+  a.head.rotation.x=speaking?Math.sin(S.time*5.3+a.seed)*0.06+Math.max(0,Math.sin(S.time*2.1))*0.05:lerp(a.head.rotation.x,0.05,dt*2);
+  a.head.rotation.z=speaking?Math.sin(S.time*1.3+a.seed)*0.04:lerp(a.head.rotation.z,0.08*Math.sin(a.seed),dt*2);
+  a.g.position.y=0; a.g.rotation.z=Math.sin(S.time*0.9+a.seed)*0.012;
+  mouthAnim(a,dt,speaking);
+}
+function mouthAnim(a,dt,speaking){
+  const m=a.mouth; if(!m) return; const r=m.userData.rest;
+  if(speaking){ a.sylT=(a.sylT||0)-dt; if(a.sylT<=0){ a.sylT=rnd(0.08,0.17); a.sylOpen=Math.random()<0.18?0:rnd(0.4,1); if(a.sylOpen>0 && dist(a.pos,S.pos)<12) sfx.voice(a.voice,a.pos.x,a.pos.z); } }
+  else a.sylOpen=0;
+  m.scale.y=lerp(m.scale.y,r+(a.sylOpen||0)*0.011,dt*22);
+}
+function resetArmsZ(a){ a.armL.rotation.z*=0.85; a.armR.rotation.z*=0.85; a.g.rotation.z*=0.85; }
+function idlePose(a,dt,creepy){ resetArmsZ(a); a.legL.rotation.x*=0.9; a.legR.rotation.x*=0.9; a.kneeL.rotation.x*=0.9; a.kneeR.rotation.x*=0.9; a.elL.rotation.x=lerp(a.elL.rotation.x,a.elbow,dt*4); a.elR.rotation.x=lerp(a.elR.rotation.x,a.elbow,dt*4);
   if(a.armHold!=null){ a.armL.rotation.x=a.armHold; a.armR.rotation.x=a.armHold; } else { a.armL.rotation.x*=0.9; a.armR.rotation.x*=0.9; }
   if(creepy){ a.head.rotation.z=lerp(a.head.rotation.z,0.45*Math.sin(a.seed),dt*0.8); a.head.rotation.x=lerp(a.head.rotation.x,-0.1,dt); }
   else { a.head.rotation.z=Math.sin(S.time*0.5+a.seed)*0.05; a.head.rotation.x=Math.sin(S.time*0.3+a.seed)*0.06; } }
@@ -1651,7 +1704,9 @@ function updateNPCs(dt,extraN,outsideAtDusk){
     if(a.dead) continue;
     a.it.x=a.pos.x; a.it.z=a.pos.z;
     const dP=dist(a.pos,S.pos);
-    if(a.talking){ a.g.rotation.y=Math.atan2(S.pos.x-a.pos.x,S.pos.z-a.pos.z); idlePose(a,dt); a.head.rotation.y*=0.8; continue; }
+    if(a.seized){ seizedPose(a,dt); continue; }
+    if(a.talking){ a.g.rotation.y=Math.atan2(S.pos.x-a.pos.x,S.pos.z-a.pos.z); if(talk&&talk.a===a&&talk.speakT>0) talk.speakT-=dt; talkPose(a,dt,!!(talk&&talk.a===a&&talk.mode==='lines'&&talk.speakT>0)); a.head.rotation.y*=0.8; continue; }
+    if(a.sayT>0) a.sayT-=dt;
     const want=desiredPlace(a), P=PLACES[want];
     if(a.place!==want){ a.place=want; a.goal=P.points?P.points[a.patrolI%P.points.length]:placePoint(want); a.waitT=0; }
     if(isNight() && S.late!==a && a.place===a.def.home && buildingAt(a.pos.x,a.pos.z)!==B[a.def.home]){ const p=placePoint(a.def.home); placeActor(a,p.x,p.z); a.goal=p; a.via=null; }
@@ -1660,7 +1715,7 @@ function updateNPCs(dt,extraN,outsideAtDusk){
     if(hunted && a.place!==a.def.home && B[a.def.home].talisman){ a.place=a.def.home; a.goal=placePoint(a.def.home); a.waitT=0; }
     const hurry=hunted?Math.min(2.4,3.2/a.def.speed):(S.hour>=17.6||S.hour<6)?1.7:1;
     if(d<0.5 || (a.blocked && d<2.2)){
-      idlePose(a,dt); a.waitT-=dt;
+      idlePose(a,dt); mouthAnim(a,dt,(a.sayT||0)>0); a.waitT-=dt;
       if(a.waitT<=0){ a.waitT=P.points?rnd(3,6):rnd(6,14); if(P.points){ a.patrolI++; a.goal=P.points[a.patrolI%P.points.length]; } else a.goal=placePoint(a.place); a.blocked=false; }
     } else moveActor(a,navTarget(a,a.goal,true),a.def.speed*hurry,dt,extraN);
     // look at you when you're close
@@ -1670,8 +1725,8 @@ function updateNPCs(dt,extraN,outsideAtDusk){
     a.barkT-=dt;
     if(a.barkT<=0 && dP<6 && !S.ui && !S.dead){
       const nm=a.def.name.startsWith('Dr.')?'Dr. Vance':a.def.name.split(' ')[0];
-      if(outsideAtDusk){ a.barkT=rnd(14,22); showSay(nm,pick(DUSK_BARKS)); }
-      else if(a.met){ a.barkT=rnd(45,90); showSay(nm,pick(isNight()&&a.def.night?a.def.night:a.def.hello)); }
+      if(outsideAtDusk){ a.barkT=rnd(14,22); const t=pick(DUSK_BARKS); showSay(nm,t); a.sayT=t.length*0.05; }
+      else if(a.met){ a.barkT=rnd(45,90); const t=pick(isNight()&&a.def.night?a.def.night:a.def.hello); showSay(nm,t); a.sayT=t.length*0.05; }
     }
   }
 }
@@ -1700,7 +1755,7 @@ function talkOptions(a){
 }
 function renderTalk(){
   const opts=$('dlgOpts');
-  if(talk.mode==='lines'){ $('dlgText').textContent=talk.lines[talk.i]; opts.innerHTML=''; $('dlgMore').textContent='E to continue'; }
+  if(talk.mode==='lines'){ $('dlgText').textContent=talk.lines[talk.i]; opts.innerHTML=''; $('dlgMore').textContent='E to continue'; talk.speakT=clamp(talk.lines[talk.i].length*0.05,0.8,5); talk.a.gT=0; }
   else { talk.opts=talkOptions(talk.a); $('dlgText').textContent=''; $('dlgText').hidden=true;
     opts.innerHTML=talk.opts.map((o,i)=>`<div><b>${i+1}</b>${o.label}${o.fresh?'<em>new</em>':''}</div>`).join('');
     $('dlgMore').textContent='Press a number · E to leave'; return; }
@@ -1826,6 +1881,9 @@ const sfx={
   giggle:()=>{ const [x,z]=around(20,40), o=out(x,z); for(let i=0;i<6;i++) tone(620+Math.random()*260,0.09,0.05,'triangle',i*0.12,0.01,o); },
   screamAt:(x,z)=>{ const o=out(x,z); burst(1300,1.2,0.09,0,'bandpass',o,0.1); const os=tone(820,1.4,0.1,'sawtooth',0,0.06,o); if(os) os.frequency.exponentialRampToValueAtTime(240,A.ctx.currentTime+1.4); },
   flare:(x,z)=>{ const o=out(x,z); burst(2600,3.2,0.16,0,'highpass',o,0.04); burst(700,0.25,0.35,0,'bandpass',o); for(let i=0;i<6;i++) burst(1800+Math.random()*1500,0.05,0.08,0.2+i*0.37,'bandpass',o); },
+  voice:(f,x,z)=>{ const o=out(x,z); const p=f*(0.85+Math.random()*0.35); tone(p,0.09,0.035,'triangle',0,0.012,o); tone(p*2.02,0.07,0.012,'sine',0,0.01,o); burst(900+Math.random()*900,0.06,0.02,0,'bandpass',o,0.01); },
+  lunge:()=>{ if(!A.ctx) return; burst(700,0.7,0.5,0,'bandpass',A.sfx,0.01); tone(98,1.3,0.22,'sawtooth',0,0.01); tone(103.8,1.3,0.22,'sawtooth',0,0.01); tone(55,1.6,0.35,'sine',0.05,0.02); burst(3000,1.2,0.12,0,'highpass',A.mIn); },
+  bite:()=>{ if(!A.ctx) return; burst(400,0.25,0.6,0,'lowpass'); burst(1500,0.18,0.35,0.05,'bandpass'); tone(60,0.4,0.4,'sine',0,0.005); },
   dawn:()=>{ for(const [f,w] of [[220,0],[277.2,0.3],[329.6,0.6],[440,1.2]]) mtone(f,6,0.04,'sine',w,1.5); },
 };
 function playNote(nightF,tense){
@@ -1996,6 +2054,35 @@ function updateLighting(){
 // ---------- death / respawn / win ----------
 function mourn(){ const l=S.lostTonight.splice(0); if(!l.length) return '';
   const n=l.map(shortName); return ` <span style="color:#e2574c">${n.length>1?n.slice(0,-1).join(', ')+' and '+n[n.length-1]:n[0]} didn't make it through the night.</span>`; }
+// when one of them reaches you: it takes hold, leans in and opens its mouth
+function startGrab(c){
+  if(S.grab||S.dead) return; closeUI();
+  if(S.sleep){ S.sleep=null; $('sleep').style.opacity=0; }
+  S.grab={c,t:0,yaw0:S.yaw}; S.flashlight=S.flashlight&&Math.random()<0.5; sfx.lunge(); $('hud').classList.add('grabbed');
+  for(const o of creatures) if(o!==c && dist(o.pos,S.pos)<8) o.state='wander';
+}
+function updateGrab(dt){
+  const G=S.grab, c=G.c, t=(G.t+=dt), K=c.K||{};
+  const ang=Math.atan2(c.pos.x-S.pos.x,c.pos.z-S.pos.z), close=lerp(1.2,0.9,smooth((t-0.35)/0.7));
+  c.pos.x=S.pos.x+Math.sin(ang)*close; c.pos.z=S.pos.z+Math.cos(ang)*close; c.pos.y=0;
+  c.g.rotation.y=Math.atan2(S.pos.x-c.pos.x,S.pos.z-c.pos.z); c.g.rotation.x=smooth(t/0.8)*0.07;
+  c.legL.rotation.x=-0.25; c.legR.rotation.x=0.2; c.kneeL.rotation.x=0.3; c.kneeR.rotation.x=0.2;
+  if(K.burst){ const ph=Math.floor(t/0.22)%2, hit=(t%0.22)<0.06; c.armL.rotation.x=ph?-1.5:-0.5; c.armR.rotation.x=ph?-0.5:-1.5; c.elL.rotation.x=ph?-0.15:-1.8; c.elR.rotation.x=ph?-1.8:-0.15;
+    if(hit && t>0.2){ S.shake=0.12; if(t%0.44<0.06) sfx.thud(); } }
+  else { const reach=smooth(t/0.35); c.armL.rotation.x=lerp(c.armL.rotation.x,-1.45,reach); c.armR.rotation.x=lerp(c.armR.rotation.x,-1.45,reach);
+    const hug=K.relentless?0.55:0.28; c.armL.rotation.z=lerp(0,-hug,reach); c.armR.rotation.z=lerp(0,hug,reach); c.elL.rotation.x=-0.35; c.elR.rotation.x=-0.35; }
+  c.head.rotation.z=lerp(c.head.rotation.z,t<0.9?0.55*Math.sin(c.seed+1):0,dt*6); c.head.rotation.x=lerp(c.head.rotation.x,-0.18,dt*4);
+  if(c.mouth){ const open=smooth((t-0.45)/0.5); c.mouth.scale.y=c.mouth.userData.rest+open*0.06; c.mouth.scale.x=0.055+open*0.015; c.mouth.position.y=-0.045-open*0.045; }
+  // you're turned to face it, and held there
+  const face=Math.atan2(-(c.pos.x-S.pos.x),-(c.pos.z-S.pos.z)); let dy=face-S.yaw; dy=Math.atan2(Math.sin(dy),Math.cos(dy));
+  S.yaw+=dy*Math.min(1,dt*9); S.pitch=lerp(S.pitch,Math.atan2(1.72*(c.g.scale.y||1)-1.62,close)+0.02,dt*7);
+  S.shake=Math.max(S.shake||0,0.012+smooth((t-0.6)/0.8)*0.03); const sh=S.shake; S.shake*=0.86;
+  camera.position.set(S.pos.x+(Math.random()-0.5)*sh,1.62-smooth((t-0.9)/0.6)*0.25+(Math.random()-0.5)*sh,S.pos.z+(Math.random()-0.5)*sh);
+  camera.rotation.set(S.pitch,S.yaw,(Math.random()-0.5)*sh*2+smooth((t-0.9)/0.6)*0.15); camera.updateMatrixWorld();
+  $('danger').style.opacity=clamp(0.4+t*0.5,0,1);
+  if(t>0.45 && !G.bit){ G.bit=true; sfx.bite(); }
+  if(t>1.55){ S.grab=null; $('hud').classList.remove('grabbed'); c.g.rotation.x=0; c.armL.rotation.z=c.armR.rotation.z=0; if(c.mouth){ c.mouth.scale.set(0.055,c.mouth.userData.rest,0.03); c.mouth.position.y=-0.045; } die(); }
+}
 function die(){
   if(S.dead) return; S.dead=true; S.deathT=0; S.deaths++; sfx.death(); closeUI();
   const finder=npcs.find(a=>a.def.id==='marisol'&&!a.dead)||npcs.find(a=>!a.dead);
@@ -2020,6 +2107,7 @@ const VISIT_TEXT={bus:"An old school bus, rusted into the trees. Something is ta
 function update(dt){
   S.time+=dt;
   updateDoors(dt);
+  if(S.grab){ updateGrab(dt); updateLighting(); updateFlares(dt); return; }
   if(S.dead){ S.deathT+=dt; camera.position.y=lerp(camera.position.y,0.35,dt*2); camera.rotation.z=lerp(camera.rotation.z,0.9,dt*1.5);
     if(S.deathT>4.5) respawn(); return; }
 
@@ -2150,7 +2238,7 @@ function frame(now){
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-if(location.hash==='#debug') window.__he={S,Luv,makeCreature,KINDS,idlePose,dropFlare,flares,trunkItems,renderer,scene,camera,creatures,startSleep,wakeUp,disturb,delirium,hallucinate,killNPC,pickLate,buildings,keys,npcs,doors,B,learn,step:(n)=>{ for(let i=0;i<n && !S.dead && !S.won;i++) update(0.05); }};
+if(location.hash==='#debug') window.__he={S,Luv,startGrab,seizeNPC,talkPose,get talk(){return talk;},startTalk,makeCreature,KINDS,idlePose,dropFlare,flares,trunkItems,renderer,scene,camera,creatures,startSleep,wakeUp,disturb,delirium,hallucinate,killNPC,pickLate,buildings,keys,npcs,doors,B,learn,step:(n)=>{ for(let i=0;i<n && !S.dead && !S.won;i++) update(0.05); }};
 })();
 </script>
 </body>
